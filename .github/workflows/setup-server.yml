@@ -28,7 +28,7 @@ jobs:
               sudo systemctl start docker
             fi
 
-            if [ -d "\$HOME/n8n-hbrm/.git" ]; then
+            if [ -d "$HOME/n8n-hbrm/.git" ]; then
               echo "Repo exists. Pulling latest changes..."
               cd ~/n8n-hbrm && git pull https://${{ secrets.GH_PAT }}@github.com/aravindan888/n8n-hbrm main
             else
