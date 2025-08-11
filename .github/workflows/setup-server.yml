@@ -10,19 +10,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
 
       - name: SSH into VM and deploy
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} "
-            echo 'Cloning repo...'
+            echo 'Updating system and installing dependencies...'
+            sudo apt update &&
+            sudo apt install -y docker.io git &&
+            sudo systemctl enable docker &&
+            sudo systemctl start docker
+
+            echo 'Cloning repository...'
             rm -rf ~/hbrm-test
             git clone https://${{ secrets.GH_PAT }}@github.com/aravindan888/hbrm-test ~/hbrm-test
-            cd ~/hbrm-test
-            echo 'Moving files to root...'
-            shopt -s dotglob
-            mv ~/hbrm-test/hbrm-main/* ~/
-            rm -rf ~/hbrm-test
+
+            echo 'Moving files from hbrm-main to root...'
+            if [ -d ~/hbrm-test/hbrm-main ]; then
+              shopt -s dotglob
+              mv ~/hbrm-test/hbrm-main/* ~/
+              rm -rf ~/hbrm-test
+            fi
+
             echo 'Deployment complete.'
           "
