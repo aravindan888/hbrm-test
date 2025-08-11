@@ -12,7 +12,7 @@ This project simplifies provisioning, deployment, and backups of the n8n workflo
 -  **Docker & Git Automation** – Automated installation on target VMs
 -  **n8n Deployment via Docker Compose** 
 -  **Google Drive Backup Support** with `rclone` 
--  **Uptime Monitoring Integration** using Uptime Kuma 
+-  **Uptime Monitoring Integration** using Uptime-Kuma 
 
 ---
 
