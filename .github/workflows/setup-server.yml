@@ -18,21 +18,47 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
 
-      - name: Install Docker and Git, then clone or pull repo
+      - name: Install Docker and Git
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            # Install Docker and Git
             if ! command -v docker &> /dev/null; then
+              echo "Installing Docker and Git..."
               sudo apt update
               sudo apt install -y docker.io git
               sudo systemctl enable docker
               sudo systemctl start docker
+              sudo usermod -aG docker $USER
+              echo "Docker installation completed"
+            else
+              echo "Docker is already installed"
             fi
 
-            if [ -d "$HOME/n8n-hbrm/.git" ]; then
+            # Verify Docker installation
+            echo "Verifying Docker installation..."
+            docker --version || sudo docker --version
+            sudo systemctl status docker --no-pager
+          EOF
+
+      - name: Clone or update repository
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            # Set up directory for the project
+            PROJECT_DIR="$HOME/hbrm-test"
+
+            if [ -d "$PROJECT_DIR/.git" ]; then
               echo "Repo exists. Pulling latest changes..."
-              cd ~/n8n-hbrm && git pull origin main
+              cd "$PROJECT_DIR" && git pull origin main
             else
               echo "Cloning repo..."
-              git clone https://github.com/aravindan888/n8n-hbrm ~/n8n-hbrm
+              # Use GitHub token for authentication if repository is private
+              if [ -n "${{ secrets.GITHUB_TOKEN }}" ]; then
+                git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} "$PROJECT_DIR"
+              else
+                # For public repositories, use HTTPS without token
+                git clone https://github.com/${{ github.repository }} "$PROJECT_DIR"
+              fi
             fi
+
+            echo "Repository setup completed successfully!"
           EOF
