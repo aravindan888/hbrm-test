@@ -33,6 +33,6 @@ jobs:
               cd ~/n8n-hbrm && git pull origin main
             else
               echo "Cloning repo..."
-              git clone https://github.com/aravindan888/n8n-hbrm ~/n8n-hbrm
+              git clone https://${{ secrets.GH_PAT }}@github.com/aravindan888/n8n-hbrm ~/n8n-hbrm
             fi
           EOF
