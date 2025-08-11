@@ -22,22 +22,19 @@ jobs:
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
-          CLONE_URL="https://${GH_PAT}@github.com/aravindan888/n8n-hbrm"
-
-          # Use single quotes so $CLONE_URL is expanded locally, not remotely
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} '
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << EOF
             if ! command -v docker &> /dev/null; then
-              sudo apt update &&
-              sudo apt install -y docker.io git &&
-              sudo systemctl enable docker &&
+              sudo apt update
+              sudo apt install -y docker.io git
+              sudo systemctl enable docker
               sudo systemctl start docker
             fi
 
-            if [ -d "$HOME/n8n-hbrm/.git" ]; then
+            if [ -d "\$HOME/hbrm-test/.git" ]; then
               echo "Repo exists. Pulling latest changes..."
-              cd ~/n8n-hbrm && git pull '"$CLONE_URL"' main
+              cd ~/hbrm-test && git pull https://\${GH_PAT}@github.com/aravindan888/hbrm-test main
             else
               echo "Cloning repo..."
-              git clone '"$CLONE_URL"' ~/n8n-hbrm
+              git clone https://\${GH_PAT}@github.com/aravindan888/hbrm-test ~/hbrm-test
             fi
-          '
+          EOF
