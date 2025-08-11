@@ -1,40 +1,28 @@
-name: Setup Server
+name: Deploy to VM
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  setup:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo (on GitHub side)
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Set up SSH key
+      - name: SSH into VM and deploy
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
-
-      - name: Install Docker and Git, then clone or pull repo
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << EOF
-            if ! command -v docker &> /dev/null; then
-              sudo apt update
-              sudo apt install -y docker.io git
-              sudo systemctl enable docker
-              sudo systemctl start docker
-            fi
-
-            if [ -d "\$HOME/hbrm-test/.git" ]; then
-              echo "Repo exists. Pulling latest changes..."
-              cd ~/hbrm-test && git pull https://\${GH_PAT}@github.com/aravindan888/hbrm-test main
-            else
-              echo "Cloning repo..."
-              git clone https://\${GH_PAT}@github.com/aravindan888/hbrm-test ~/hbrm-test
-            fi
-          EOF
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} "
+            echo 'Cloning repo...'
+            rm -rf ~/hbrm-test
+            git clone https://${{ secrets.GH_PAT }}@github.com/aravindan888/hbrm-test ~/hbrm-test
+            cd ~/hbrm-test
+            echo 'Moving files to root...'
+            shopt -s dotglob
+            mv ~/hbrm-test/hbrm-main/* ~/
+            rm -rf ~/hbrm-test
+            echo 'Deployment complete.'
+          "
