@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       email:
-        description: 'Email address for Let\'s Encrypt notifications'
+        description: 'Email address for Let''s Encrypt notifications'
         required: true
         type: string
 

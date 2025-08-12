@@ -2,6 +2,15 @@ name: Debug Server Status
 
 on:
   workflow_dispatch:
+    inputs:
+      debug_level:
+        description: 'Debug level (basic/detailed)'
+        required: false
+        default: 'basic'
+        type: choice
+        options:
+        - basic
+        - detailed
 
 jobs:
   debug:

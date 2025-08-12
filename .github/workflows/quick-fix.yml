@@ -1,0 +1,186 @@
+name: Quick Fix Server Issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'fix'
+        type: choice
+        options:
+        - debug
+        - fix
+
+jobs:
+  quick-fix:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.VM_SSH_KEY }}" ]; then
+            echo "Error: VM_SSH_KEY secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_IP }}" ]; then
+            echo "Error: VM_IP secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_USER }}" ]; then
+            echo "Error: VM_USER secret is not set"
+            exit 1
+          fi
+          echo "All required secrets are present"
+          
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+          
+      - name: Debug server status
+        if: github.event.inputs.action == 'debug'
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "=== SYSTEM INFORMATION ==="
+            uname -a
+            echo ""
+
+            echo "=== DISK SPACE ==="
+            df -h
+            echo ""
+
+            echo "=== DOCKER STATUS ==="
+            docker --version || echo "Docker not installed"
+            docker compose version || docker-compose --version || echo "Docker Compose not available"
+            sudo systemctl status docker --no-pager || echo "Docker service status unknown"
+            echo ""
+
+            echo "=== PROJECT DIRECTORIES ==="
+            echo "Home directory contents:"
+            ls -la $HOME/
+            echo ""
+
+            if [ -d "$HOME/hbrm-test" ]; then
+              echo "✅ hbrm-test directory exists"
+              cd "$HOME/hbrm-test"
+              echo "Directory contents:"
+              ls -la
+              echo ""
+              echo "Scripts directory:"
+              ls -la scripts/ || echo "Scripts directory not found"
+            else
+              echo "❌ hbrm-test directory not found"
+            fi
+
+            if [ -d "$HOME/n8n-hbrm" ]; then
+              echo "⚠️  Old n8n-hbrm directory exists (should be removed)"
+            fi
+            echo ""
+
+            echo "=== RUNNING CONTAINERS ==="
+            docker ps -a || echo "Cannot list containers"
+            echo ""
+
+            echo "=== USER GROUPS ==="
+            groups
+          EOF
+
+      - name: Fix server issues
+        if: github.event.inputs.action == 'fix'
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "🔧 Fixing server issues..."
+            
+            # Install Docker Compose if missing
+            if ! docker compose version &> /dev/null && ! command -v docker-compose &> /dev/null; then
+              echo "Installing Docker Compose..."
+              sudo apt update
+              sudo apt install -y docker-compose-plugin
+            fi
+            
+            # Remove old project directory if it exists
+            if [ -d "$HOME/n8n-hbrm" ]; then
+              echo "Removing old project directory..."
+              rm -rf "$HOME/n8n-hbrm"
+            fi
+            
+            # Fix hbrm-test directory
+            PROJECT_DIR="$HOME/hbrm-test"
+            if [ -d "$PROJECT_DIR" ]; then
+              echo "Fixing existing project directory..."
+              cd "$PROJECT_DIR"
+              
+              # Reset git repository
+              git config pull.rebase false
+              git reset --hard HEAD
+              git clean -fd
+              git fetch origin main
+              git reset --hard origin/main
+              
+              # Make scripts executable
+              chmod +x scripts/*.sh
+              
+              # Create .env if missing
+              if [ ! -f ".env" ]; then
+                if [ -f ".env.example" ]; then
+                  cp .env.example .env
+                else
+                  cat > .env << 'ENVEOF'
+N8N_USER=admin
+N8N_PASSWORD=changeme
+DOMAIN=n8n.yourdomain.com
+CERTBOT_EMAIL=your-email@domain.com
+TZ=Asia/Kolkata
+ENVEOF
+                fi
+              fi
+            else
+              echo "Creating fresh project directory..."
+              if [ -n "${{ secrets.GITHUB_TOKEN }}" ]; then
+                git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} "$PROJECT_DIR"
+              else
+                git clone https://github.com/${{ github.repository }} "$PROJECT_DIR"
+              fi
+              
+              cd "$PROJECT_DIR"
+              chmod +x scripts/*.sh
+              
+              if [ -f ".env.example" ]; then
+                cp .env.example .env
+              else
+                cat > .env << 'ENVEOF'
+N8N_USER=admin
+N8N_PASSWORD=changeme
+DOMAIN=n8n.yourdomain.com
+CERTBOT_EMAIL=your-email@domain.com
+TZ=Asia/Kolkata
+ENVEOF
+              fi
+            fi
+            
+            echo "✅ Quick fix completed!"
+            echo "📁 Project directory: $PROJECT_DIR"
+            echo "🐳 Docker Compose: $(docker compose version || docker-compose --version)"
+            echo "📋 Ready for n8n deployment!"
+          EOF
+          
+      - name: Verify fix
+        if: github.event.inputs.action == 'fix'
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            PROJECT_DIR="$HOME/hbrm-test"
+            echo "=== VERIFICATION ==="
+            echo "Project directory exists: $([ -d "$PROJECT_DIR" ] && echo "✅ YES" || echo "❌ NO")"
+            echo "Deploy script exists: $([ -f "$PROJECT_DIR/scripts/deploy_n8n.sh" ] && echo "✅ YES" || echo "❌ NO")"
+            echo ".env file exists: $([ -f "$PROJECT_DIR/.env" ] && echo "✅ YES" || echo "❌ NO")"
+            echo "Docker Compose available: $(docker compose version &> /dev/null && echo "✅ YES" || echo "❌ NO")"
+            echo ""
+            echo "First few lines of deploy script:"
+            head -5 "$PROJECT_DIR/scripts/deploy_n8n.sh" || echo "Script not readable"
+          EOF

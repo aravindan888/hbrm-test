@@ -86,7 +86,19 @@ jobs:
             # Update repository to get latest changes
             echo "Updating repository..."
             cd "$PROJECT_DIR"
-            git pull origin main || echo "Warning: Could not update repository"
+
+            # Reset any local changes and force update
+            echo "Resetting local changes..."
+            git reset --hard HEAD
+            git clean -fd
+
+            # Configure git pull strategy
+            git config pull.rebase false
+
+            # Force pull latest changes
+            echo "Pulling latest changes..."
+            git fetch origin main
+            git reset --hard origin/main
 
             # Verify deployment script exists
             if [ ! -f "scripts/deploy_n8n.sh" ]; then

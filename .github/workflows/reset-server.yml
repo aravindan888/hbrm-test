@@ -1,0 +1,131 @@
+name: Reset Server (Clean Install)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_reset:
+        description: 'Type "RESET" to confirm complete server reset'
+        required: true
+        type: string
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm_reset }}" != "RESET" ]; then
+            echo "Error: You must type 'RESET' to confirm"
+            exit 1
+          fi
+          echo "Reset confirmation received"
+        
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.VM_SSH_KEY }}" ]; then
+            echo "Error: VM_SSH_KEY secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_IP }}" ]; then
+            echo "Error: VM_IP secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_USER }}" ]; then
+            echo "Error: VM_USER secret is not set"
+            exit 1
+          fi
+          echo "All required secrets are present"
+          
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+          
+      - name: Reset server completely
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "🔄 Starting complete server reset..."
+            
+            # Stop and remove all containers
+            echo "Stopping all Docker containers..."
+            docker stop $(docker ps -aq) 2>/dev/null || true
+            docker rm $(docker ps -aq) 2>/dev/null || true
+            
+            # Remove all Docker images
+            echo "Removing Docker images..."
+            docker rmi $(docker images -q) 2>/dev/null || true
+            
+            # Remove all Docker volumes
+            echo "Removing Docker volumes..."
+            docker volume rm $(docker volume ls -q) 2>/dev/null || true
+            
+            # Remove old project directories
+            echo "Removing old project directories..."
+            rm -rf $HOME/n8n-hbrm $HOME/hbrm-test $HOME/n8n-backups
+            
+            # Update system packages
+            echo "Updating system packages..."
+            sudo apt update
+            
+            # Install/reinstall Docker and Docker Compose
+            echo "Installing Docker and Docker Compose..."
+            sudo apt install -y docker.io docker-compose-plugin git curl
+            
+            # Start Docker service
+            sudo systemctl enable docker
+            sudo systemctl start docker
+            
+            # Add user to docker group
+            sudo usermod -aG docker $USER
+            
+            # Clone fresh repository
+            echo "Cloning fresh repository..."
+            if [ -n "${{ secrets.GITHUB_TOKEN }}" ]; then
+              git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} $HOME/hbrm-test
+            else
+              git clone https://github.com/${{ github.repository }} $HOME/hbrm-test
+            fi
+            
+            # Set up project
+            cd $HOME/hbrm-test
+            chmod +x scripts/*.sh
+            
+            # Create .env file
+            if [ ! -f ".env" ]; then
+              cp .env.example .env 2>/dev/null || cat > .env << 'ENVEOF'
+N8N_USER=admin
+N8N_PASSWORD=changeme
+DOMAIN=n8n.yourdomain.com
+CERTBOT_EMAIL=your-email@domain.com
+TZ=Asia/Kolkata
+ENVEOF
+            fi
+            
+            echo "✅ Server reset completed!"
+            echo "📁 Project directory: $HOME/hbrm-test"
+            echo "🐳 Docker version: $(docker --version)"
+            echo "🔧 Docker Compose version: $(docker compose version)"
+            echo "📋 Next step: Run 'Deploy n8n' workflow"
+          EOF
+          
+      - name: Verify reset
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "=== VERIFICATION ==="
+            echo "Project directory:"
+            ls -la $HOME/hbrm-test/ || echo "Project directory not found"
+            echo ""
+            echo "Docker status:"
+            docker --version
+            docker compose version
+            sudo systemctl is-active docker
+            echo ""
+            echo "Scripts:"
+            ls -la $HOME/hbrm-test/scripts/ || echo "Scripts not found"
+          EOF
