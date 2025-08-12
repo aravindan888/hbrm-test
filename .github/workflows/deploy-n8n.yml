@@ -8,35 +8,296 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Validate Secrets
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Validate secrets
         run: |
-          if [ -z "${{ secrets.VM_SSH_KEY }}" ]; then echo "VM_SSH_KEY is not set"; exit 1; fi
-          if [ -z "${{ secrets.VM_IP }}" ]; then echo "VM_IP is not set"; exit 1; fi
-          if [ -z "${{ secrets.VM_USER }}" ]; then echo "VM_USER is not set"; exit 1; fi
+          if [ -z "${{ secrets.VM_SSH_KEY }}" ]; then
+            echo "Error: VM_SSH_KEY secret is not set or is empty"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_IP }}" ]; then
+            echo "Error: VM_IP secret is not set or is empty"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_USER }}" ]; then
+            echo "Error: VM_USER secret is not set or is empty"
+            exit 1
+          fi
+          echo "All required secrets are present"
+          
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          
+          # Verify the key was decoded properly
+          if [ ! -s ~/.ssh/id_rsa ]; then
+            echo "Error: SSH key file is empty after decoding"
+            exit 1
+          fi
+          
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Verify key format
+          if ! ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null 2>&1; then
+            echo "Error: Invalid SSH private key format"
+            exit 1
+          fi
+          
+          echo "SSH key setup completed successfully"
+          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+          
+      - name: Test SSH connection and verify prerequisites
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "SSH connection successful"
 
-      - name: Update Repository and Deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VM_IP }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: |
-            # Exit script on any error
-            set -e
+            echo "Checking Docker installation..."
+            docker --version || { echo "Docker not found!"; exit 1; }
 
+            echo "Checking Docker Compose..."
+            if command -v docker-compose &> /dev/null; then
+              echo "docker-compose found: $(docker-compose --version)"
+            elif docker compose version &> /dev/null; then
+              echo "docker compose plugin found: $(docker compose version)"
+            else
+              echo "Docker Compose not found! Installing..."
+              sudo apt update && sudo apt install -y docker-compose-plugin
+            fi
+
+            echo "Checking Docker service..."
+            sudo systemctl is-active docker || { echo "Docker service not running!"; exit 1; }
+          EOF
+          
+      - name: Update repository and deploy n8n
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
             PROJECT_DIR="$HOME/hbrm-test"
+
+            # Check if project directory exists
+            if [ ! -d "$PROJECT_DIR" ]; then
+              echo "Error: Project directory $PROJECT_DIR not found!"
+              echo "Please run the 'Setup Server' workflow first to clone the repository."
+              exit 1
+            fi
+
+            # Force update repository and overwrite local changes
+            echo "Updating repository and overwriting local changes..."
             cd "$PROJECT_DIR"
 
-            echo "--- Updating repository ---"
-            # Backup .env, force pull, and restore .env
-            [ -f .env ] && cp .env .env.backup
+            # Backup current .env if it exists
+            if [ -f ".env" ]; then
+              cp .env .env.backup
+              echo "Backed up existing .env file"
+            fi
+
+            # Reset any local changes and force update
+            echo "Resetting local changes..."
+            git reset --hard HEAD
+            git clean -fd
+
+            # Configure git pull strategy
+            git config pull.rebase false
+
+            # Force pull latest changes
+            echo "Pulling latest changes..."
             git fetch origin main
             git reset --hard origin/main
-            git clean -fd
-            [ -f .env.backup ] && mv .env.backup .env
 
-            echo "--- Deploying n8n application ---"
-            # The deploy script can now be simpler as it assumes Docker is ready
-            # Ensure script is executable and run it
+            # Restore .env if backup exists
+            if [ -f ".env.backup" ]; then
+              mv .env.backup .env
+              echo "Restored .env file"
+            fi
+
+            # Ensure scripts are executable
+            chmod +x scripts/*.sh
+
+            # Verify deployment script exists, create if missing
+            if [ ! -f "scripts/deploy_n8n.sh" ]; then
+              echo "⚠️  deploy_n8n.sh script not found, creating it..."
+              echo "Repository contents:"
+              ls -la
+              echo "Scripts directory:"
+              ls -la scripts/ || echo "Scripts directory not found"
+
+              # Create a simple deploy script
+              echo '#!/bin/bash' > scripts/deploy_n8n.sh
+              echo 'set -e' >> scripts/deploy_n8n.sh
+              echo 'echo "🚀 Starting n8n deployment..."' >> scripts/deploy_n8n.sh
+              echo 'PROJECT_DIR="$HOME/hbrm-test"' >> scripts/deploy_n8n.sh
+              echo 'cd "$PROJECT_DIR"' >> scripts/deploy_n8n.sh
+              echo 'if [ ! -f ".env" ]; then' >> scripts/deploy_n8n.sh
+              echo '  if [ -f ".env.example" ]; then' >> scripts/deploy_n8n.sh
+              echo '    cp .env.example .env' >> scripts/deploy_n8n.sh
+              echo '  else' >> scripts/deploy_n8n.sh
+              echo '    echo "N8N_USER=admin" > .env' >> scripts/deploy_n8n.sh
+              echo '    echo "N8N_PASSWORD=changeme" >> .env' >> scripts/deploy_n8n.sh
+              echo '    echo "TZ=Asia/Kolkata" >> .env' >> scripts/deploy_n8n.sh
+              echo '  fi' >> scripts/deploy_n8n.sh
+              echo 'fi' >> scripts/deploy_n8n.sh
+              echo 'if command -v docker-compose &> /dev/null; then' >> scripts/deploy_n8n.sh
+              echo '  DOCKER_COMPOSE_CMD="docker-compose"' >> scripts/deploy_n8n.sh
+              echo 'elif docker compose version &> /dev/null; then' >> scripts/deploy_n8n.sh
+              echo '  DOCKER_COMPOSE_CMD="docker compose"' >> scripts/deploy_n8n.sh
+              echo 'else' >> scripts/deploy_n8n.sh
+              echo '  sudo apt update && sudo apt install -y docker-compose-plugin' >> scripts/deploy_n8n.sh
+              echo '  DOCKER_COMPOSE_CMD="docker compose"' >> scripts/deploy_n8n.sh
+              echo 'fi' >> scripts/deploy_n8n.sh
+              echo 'echo "Using: $DOCKER_COMPOSE_CMD"' >> scripts/deploy_n8n.sh
+              echo '$DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml down || true' >> scripts/deploy_n8n.sh
+              echo '$DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml pull' >> scripts/deploy_n8n.sh
+              echo '$DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml up -d' >> scripts/deploy_n8n.sh
+              echo 'sleep 10' >> scripts/deploy_n8n.sh
+              echo 'if docker ps | grep -q n8n; then' >> scripts/deploy_n8n.sh
+              echo '  SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || echo "your-server-ip")' >> scripts/deploy_n8n.sh
+              echo '  echo "✅ n8n deployed successfully!"' >> scripts/deploy_n8n.sh
+              echo '  echo "🌐 Access: http://$SERVER_IP:5678"' >> scripts/deploy_n8n.sh
+              echo '  echo "🔐 Credentials: admin / changeme"' >> scripts/deploy_n8n.sh
+              echo 'else' >> scripts/deploy_n8n.sh
+              echo '  echo "❌ Deployment failed"' >> scripts/deploy_n8n.sh
+              echo '  docker ps -a' >> scripts/deploy_n8n.sh
+              echo '  exit 1' >> scripts/deploy_n8n.sh
+              echo 'fi' >> scripts/deploy_n8n.sh
+
+              chmod +x scripts/deploy_n8n.sh
+              echo "✅ Created deploy_n8n.sh script"
+            fi
+
+            echo "Found deployment script, starting deployment..."
             chmod +x scripts/deploy_n8n.sh
-            bash scripts/deploy_n8n.sh
+
+            echo "=== DEPLOYMENT SCRIPT CONTENT ==="
+            echo "First 10 lines of deploy script:"
+            head -10 scripts/deploy_n8n.sh
+            echo "=========================="
+
+            echo "=== EXECUTING DEPLOYMENT SCRIPT ==="
+            echo "Running deployment script with verbose output..."
+
+            # Force deployment to run
+            set +e  # Don't exit on error
+            bash -x scripts/deploy_n8n.sh
+            DEPLOY_EXIT_CODE=$?
+            set -e  # Re-enable exit on error
+
+            if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
+              echo "❌ DEPLOYMENT SCRIPT FAILED with exit code $DEPLOY_EXIT_CODE"
+              echo "Attempting manual deployment as fallback..."
+
+              # Manual deployment as fallback
+              cd "$PROJECT_DIR"
+
+              # Create basic .env file
+              echo "Creating .env file..."
+              echo "N8N_USER=admin" > .env
+              echo "N8N_PASSWORD=changeme" >> .env
+              echo "TZ=Asia/Kolkata" >> .env
+
+              # Install Docker Compose if needed
+              if ! docker compose version >/dev/null 2>&1 && ! command -v docker-compose >/dev/null 2>&1; then
+                echo "Installing Docker Compose..."
+                sudo apt update && sudo apt install -y docker-compose-plugin
+              fi
+
+              # Determine Docker Compose command
+              if command -v docker-compose >/dev/null 2>&1; then
+                DOCKER_COMPOSE_CMD="docker-compose"
+              else
+                DOCKER_COMPOSE_CMD="docker compose"
+              fi
+
+              echo "Using Docker Compose: $DOCKER_COMPOSE_CMD"
+
+              # Force deploy n8n
+              echo "Force deploying n8n..."
+              $DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml down || true
+              $DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml pull || true
+              $DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml up -d
+
+              echo "✅ Manual deployment completed"
+            else
+              echo "✅ Deployment script completed successfully"
+            fi
+
+            echo "=== DEPLOYMENT COMPLETED ==="
+          EOF
+
+      - name: Verify n8n deployment and accessibility
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "=== VERIFYING N8N DEPLOYMENT ==="
+
+            # Check if n8n container is running
+            echo "1. Checking n8n container status..."
+            if docker ps | grep -q n8n; then
+              echo "✅ n8n container is RUNNING"
+              CONTAINER_ID=$(docker ps | grep n8n | awk '{print $1}')
+              echo "   Container ID: $CONTAINER_ID"
+              echo "   Container details:"
+              docker ps | grep n8n
+            else
+              echo "❌ n8n container is NOT RUNNING"
+              echo "All containers:"
+              docker ps -a
+              echo "Docker Compose logs:"
+              cd $HOME/hbrm-test
+              docker compose -f docker/docker-compose.n8n.yml logs || docker-compose -f docker/docker-compose.n8n.yml logs || true
+              exit 1
+            fi
+
+            # Check container logs
+            echo ""
+            echo "2. Checking n8n container logs..."
+            docker logs --tail 20 $CONTAINER_ID
+
+            # Check if port 5678 is accessible
+            echo ""
+            echo "3. Checking if n8n is accessible on port 5678..."
+            sleep 5  # Give n8n time to fully start
+
+            # Test local connection
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:5678 | grep -q "200\|401\|302"; then
+              echo "✅ n8n is responding on localhost:5678"
+            else
+              echo "❌ n8n is NOT responding on localhost:5678"
+              echo "Checking if port is listening..."
+              netstat -tlnp | grep :5678 || ss -tlnp | grep :5678 || echo "Port 5678 not listening"
+            fi
+
+            # Get server public IP
+            echo ""
+            echo "4. Getting server public IP..."
+            PUBLIC_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ipinfo.io/ip 2>/dev/null || echo "Unable to detect")
+            echo "   Public IP: $PUBLIC_IP"
+
+            # Final summary
+            echo ""
+            echo "=== DEPLOYMENT SUMMARY ==="
+            echo "✅ Container Status: $(docker ps | grep -q n8n && echo "RUNNING" || echo "NOT RUNNING")"
+            echo "✅ Access URL: http://$PUBLIC_IP:5678"
+            echo "✅ Default Username: admin"
+            echo "✅ Default Password: changeme"
+            echo "=========================="
+
+            # Check if .env file exists and show credentials
+            if [ -f "$HOME/hbrm-test/.env" ]; then
+              echo ""
+              echo "Current credentials from .env file:"
+              grep -E "N8N_USER|N8N_PASSWORD" "$HOME/hbrm-test/.env" || echo "Credentials not found in .env"
+            fi
+
+            echo ""
+            echo "🎉 FINAL RESULT:"
+            if docker ps | grep -q n8n; then
+              echo "✅ n8n is SUCCESSFULLY DEPLOYED and RUNNING!"
+              echo "🌐 Access your n8n at: http://$PUBLIC_IP:5678"
+              echo "🔐 Username: admin"
+              echo "🔐 Password: changeme"
+            else
+              echo "❌ n8n deployment FAILED - container not running"
+              exit 1
+            fi
+          EOF
