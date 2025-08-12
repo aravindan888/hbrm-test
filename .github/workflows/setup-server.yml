@@ -1,15 +1,18 @@
-name: Deploy to VM
+name: Deploy to VM - Complete Setup
 on:
   push:
     branches:
       - main
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4  # Updated to latest version
+        uses: actions/checkout@v4
         
       - name: Set up SSH key
         run: |
@@ -17,40 +20,262 @@ jobs:
           echo "${{ secrets.VM_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+          echo "SSH key setup completed"
           
-      - name: Deploy to VM
+      - name: Test SSH Connection
+        run: |
+          echo "Testing SSH connection..."
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} "echo 'SSH connection successful'; whoami; pwd"
+          
+      - name: Install Docker and Dependencies
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
             set -e  # Exit on any error
             
-            echo "Updating system and installing dependencies..."
-            sudo apt update
-            sudo apt install -y docker.io git
-            sudo systemctl enable docker
-            sudo systemctl start docker
+            echo "=== System Information ==="
+            whoami
+            pwd
+            uname -a
+            echo "Available disk space:"
+            df -h
             
-            # Add user to docker group (requires logout/login to take effect)
+            echo "=== Updating system packages ==="
+            sudo apt update
+            sudo apt upgrade -y
+            
+            echo "=== Installing Docker ==="
+            # Remove any old Docker installations
+            sudo apt remove -y docker docker-engine docker.io containerd runc || true
+            
+            # Install prerequisites
+            sudo apt install -y \
+              apt-transport-https \
+              ca-certificates \
+              curl \
+              gnupg \
+              lsb-release \
+              git \
+              unzip \
+              wget
+            
+            # Add Docker's official GPG key
+            sudo mkdir -p /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            
+            # Set up the stable repository
+            echo \
+              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+              $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            
+            # Install Docker Engine
+            sudo apt update
+            sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            
+            echo "=== Configuring Docker ==="
+            # Start and enable Docker
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            
+            # Add current user to docker group
             sudo usermod -aG docker $USER
             
-            echo "Cloning repository..."
-            rm -rf ~/hbrm-test
+            echo "=== Verifying Docker Installation ==="
+            sudo docker --version
+            sudo docker compose version
+            echo "Docker installation completed successfully!"
             
-            # Clone with error handling
-            if ! git clone https://${{ secrets.GH_PAT }}@github.com/aravindan888/hbrm-test ~/hbrm-test; then
-              echo "Failed to clone repository"
+          EOF
+          
+      - name: Setup Git Configuration
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "=== Setting up Git configuration ==="
+            
+            # Configure git globally
+            git config --global user.name "GitHub Actions Deploy"
+            git config --global user.email "actions@github.com"
+            git config --global init.defaultBranch main
+            
+            # Show git version and config
+            git --version
+            git config --list --global
+            
+            echo "Git configuration completed"
+          EOF
+          
+      - name: Clone Repository
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            set -e
+            
+            echo "=== Preparing to clone repository ==="
+            
+            # Clean up any existing directory
+            rm -rf ~/hbrm-test
+            rm -rf ~/hbrm-main  # Clean up any old files too
+            
+            echo "=== Cloning Repository ==="
+            
+            # Try different authentication methods
+            CLONE_SUCCESS=false
+            
+            # Method 1: Try with Personal Access Token (if available)
+            if [ -n "${{ secrets.GH_PAT }}" ] && [ "${{ secrets.GH_PAT }}" != "" ]; then
+              echo "Attempting clone with Personal Access Token..."
+              if git clone https://oauth2:${{ secrets.GH_PAT }}@github.com/aravindan888/hbrm-test.git ~/hbrm-test; then
+                echo "✅ Successfully cloned with PAT"
+                CLONE_SUCCESS=true
+              else
+                echo "❌ Failed to clone with PAT, trying next method..."
+              fi
+            fi
+            
+            # Method 2: Try public clone (if PAT method failed or not available)
+            if [ "$CLONE_SUCCESS" = false ]; then
+              echo "Attempting public clone..."
+              if git clone https://github.com/aravindan888/hbrm-test.git ~/hbrm-test; then
+                echo "✅ Successfully cloned as public repository"
+                CLONE_SUCCESS=true
+              else
+                echo "❌ Failed to clone as public repository"
+              fi
+            fi
+            
+            # Method 3: Try with username:token format (alternative)
+            if [ "$CLONE_SUCCESS" = false ] && [ -n "${{ secrets.GH_PAT }}" ]; then
+              echo "Attempting clone with username:token format..."
+              if git clone https://aravindan888:${{ secrets.GH_PAT }}@github.com/aravindan888/hbrm-test.git ~/hbrm-test; then
+                echo "✅ Successfully cloned with username:token"
+                CLONE_SUCCESS=true
+              else
+                echo "❌ Failed to clone with username:token format"
+              fi
+            fi
+            
+            if [ "$CLONE_SUCCESS" = false ]; then
+              echo "❌ All clone methods failed. Please check:"
+              echo "1. Repository exists: https://github.com/aravindan888/hbrm-test"
+              echo "2. Repository is public OR GH_PAT secret is set correctly"
+              echo "3. GH_PAT has proper permissions (repo scope)"
               exit 1
             fi
             
-            echo "Moving files from hbrm-main to root..."
-            if [ -d ~/hbrm-test/hbrm-main ]; then
-              shopt -s dotglob
-              cp -r ~/hbrm-test/hbrm-main/* ~/
+            echo "=== Repository cloned successfully ==="
+            ls -la ~/hbrm-test/
+            echo "Repository size:"
+            du -sh ~/hbrm-test/
+            
+          EOF
+          
+      - name: Process and Deploy Files
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            set -e
+            
+            echo "=== Processing Repository Files ==="
+            
+            if [ -d ~/hbrm-test ]; then
+              echo "Current repository structure:"
+              find ~/hbrm-test -maxdepth 2 -type f | head -20
+              
+              # Check if hbrm-main directory exists
+              if [ -d ~/hbrm-test/hbrm-main ]; then
+                echo "=== Found hbrm-main directory, moving contents to home ==="
+                
+                # Create backup of any existing files
+                if ls ~/*.json ~/*.js ~/*.py ~/Dockerfile* ~/docker-compose* 2>/dev/null; then
+                  echo "Backing up existing files..."
+                  mkdir -p ~/backup-$(date +%Y%m%d-%H%M%S)
+                  cp -r ~/*.json ~/*.js ~/*.py ~/Dockerfile* ~/docker-compose* ~/backup-$(date +%Y%m%d-%H%M%S)/ 2>/dev/null || true
+                fi
+                
+                # Move files from hbrm-main to home directory
+                echo "Moving files from hbrm-main to home directory..."
+                shopt -s dotglob
+                cp -rv ~/hbrm-test/hbrm-main/* ~/
+                
+                echo "✅ Files moved successfully from hbrm-main"
+                
+              else
+                echo "=== No hbrm-main directory found, checking repository structure ==="
+                ls -la ~/hbrm-test/
+                
+                # If no hbrm-main, move all repo contents to home
+                echo "Moving entire repository contents to home directory..."
+                shopt -s dotglob
+                cp -rv ~/hbrm-test/* ~/
+                echo "✅ Repository contents moved to home directory"
+              fi
+              
+              # Clean up the cloned directory
               rm -rf ~/hbrm-test
-              echo "Files moved successfully"
+              
+              echo "=== Final directory structure ==="
+              ls -la ~/
+              
+              # Look for Docker-related files
+              echo "=== Checking for Docker files ==="
+              if [ -f ~/Dockerfile ]; then
+                echo "✅ Found Dockerfile"
+                head -10 ~/Dockerfile
+              fi
+              
+              if [ -f ~/docker-compose.yml ] || [ -f ~/docker-compose.yaml ]; then
+                echo "✅ Found docker-compose file"
+                ls -la ~/docker-compose.*
+              fi
+              
+              if [ -f ~/package.json ]; then
+                echo "✅ Found package.json"
+                cat ~/package.json
+              fi
+              
             else
-              echo "Warning: hbrm-main directory not found"
-              ls -la ~/hbrm-test/
+              echo "❌ Repository directory not found after cloning"
+              exit 1
             fi
             
-            echo "Deployment complete."
+          EOF
+          
+      - name: Test Docker Installation
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "=== Testing Docker Installation ==="
+            
+            # Test Docker with sudo first
+            sudo docker --version
+            sudo docker info
+            
+            # Test a simple container
+            echo "Running hello-world container..."
+            sudo docker run --rm hello-world
+            
+            echo "=== Docker Status ==="
+            sudo systemctl status docker --no-pager
+            
+            echo "=== Docker installation and testing completed! ==="
+            echo "Note: User added to docker group. For docker commands without sudo,"
+            echo "user needs to log out and back in, or start a new session."
+            
+          EOF
+          
+      - name: Deployment Summary
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "======================================"
+            echo "🎉 DEPLOYMENT COMPLETED SUCCESSFULLY! 🎉"
+            echo "======================================"
+            echo ""
+            echo "✅ Docker installed and running"
+            echo "✅ Repository cloned and files deployed"
+            echo "✅ Files moved to home directory"
+            echo ""
+            echo "Next steps:"
+            echo "1. SSH into your VM: ssh $USER@$(curl -s ifconfig.me)"
+            echo "2. Check your application files: ls -la ~/"
+            echo "3. Build and run your Docker containers"
+            echo ""
+            echo "Available files in home directory:"
+            ls -la ~/
+            echo "======================================"
           EOF
