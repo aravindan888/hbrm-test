@@ -83,9 +83,15 @@ jobs:
               exit 1
             fi
 
-            # Update repository to get latest changes
-            echo "Updating repository..."
+            # Force update repository and overwrite local changes
+            echo "Updating repository and overwriting local changes..."
             cd "$PROJECT_DIR"
+
+            # Backup current .env if it exists
+            if [ -f ".env" ]; then
+              cp .env .env.backup
+              echo "Backed up existing .env file"
+            fi
 
             # Reset any local changes and force update
             echo "Resetting local changes..."
@@ -99,6 +105,15 @@ jobs:
             echo "Pulling latest changes..."
             git fetch origin main
             git reset --hard origin/main
+
+            # Restore .env if backup exists
+            if [ -f ".env.backup" ]; then
+              mv .env.backup .env
+              echo "Restored .env file"
+            fi
+
+            # Ensure scripts are executable
+            chmod +x scripts/*.sh
 
             # Verify deployment script exists
             if [ ! -f "scripts/deploy_n8n.sh" ]; then
