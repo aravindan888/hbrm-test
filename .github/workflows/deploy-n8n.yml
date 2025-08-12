@@ -13,8 +13,8 @@ jobs:
         
       - name: Validate secrets
         run: |
-          if [ -z "${{ secrets.SSH_KEY_B64 }}" ]; then
-            echo "Error: SSH_KEY_B64 secret is not set or is empty"
+          if [ -z "${{ secrets.VM_SSH_KEY }}" ]; then
+            echo "Error: VM_SSH_KEY secret is not set or is empty"
             exit 1
           fi
           if [ -z "${{ secrets.VM_IP }}" ]; then
@@ -30,7 +30,7 @@ jobs:
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY_B64 }}" | base64 -d > ~/.ssh/id_rsa
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
           
           # Verify the key was decoded properly
           if [ ! -s ~/.ssh/id_rsa ]; then
@@ -56,11 +56,13 @@ jobs:
       - name: SSH and deploy n8n
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} '
-            if [ ! -f ~/n8n-hbrm/scripts/deploy_n8n.sh ]; then
-              echo "Error: deploy_n8n.sh script not found"
+            PROJECT_DIR="$HOME/hbrm-test"
+            if [ ! -f "$PROJECT_DIR/scripts/deploy_n8n.sh" ]; then
+              echo "Error: deploy_n8n.sh script not found at $PROJECT_DIR/scripts/"
+              echo "Please run the setup-server workflow first to clone the repository"
               exit 1
             fi
             echo "Found deployment script, starting deployment..."
-            chmod +x ~/n8n-hbrm/scripts/deploy_n8n.sh
-            bash ~/n8n-hbrm/scripts/deploy_n8n.sh
+            chmod +x "$PROJECT_DIR/scripts/deploy_n8n.sh"
+            bash "$PROJECT_DIR/scripts/deploy_n8n.sh"
           '

@@ -1,0 +1,115 @@
+name: Setup NGINX Reverse Proxy with SSL
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Domain name for SSL certificate (e.g., n8n.yourdomain.com)'
+        required: true
+        type: string
+      email:
+        description: 'Email address for Let\'s Encrypt notifications'
+        required: true
+        type: string
+
+jobs:
+  setup-nginx:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Validate inputs
+        run: |
+          if [ -z "${{ github.event.inputs.domain }}" ]; then
+            echo "Error: Domain is required"
+            exit 1
+          fi
+          if [ -z "${{ github.event.inputs.email }}" ]; then
+            echo "Error: Email is required"
+            exit 1
+          fi
+          echo "Domain: ${{ github.event.inputs.domain }}"
+          echo "Email: ${{ github.event.inputs.email }}"
+          
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.VM_SSH_KEY }}" ]; then
+            echo "Error: VM_SSH_KEY secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_IP }}" ]; then
+            echo "Error: VM_IP secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_USER }}" ]; then
+            echo "Error: VM_USER secret is not set"
+            exit 1
+          fi
+          echo "All required secrets are present"
+          
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+          
+      - name: Test SSH connection
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} 'echo "SSH connection successful"'
+          
+      - name: Setup NGINX with SSL
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << EOF
+            PROJECT_DIR="\$HOME/hbrm-test"
+            
+            if [ ! -d "\$PROJECT_DIR" ]; then
+              echo "Error: Project directory not found. Please run setup-server workflow first."
+              exit 1
+            fi
+            
+            cd "\$PROJECT_DIR"
+            
+            # Update .env file with domain and email
+            if [ ! -f ".env" ]; then
+              cp .env.example .env
+            fi
+            
+            # Add or update domain and email in .env
+            if grep -q "DOMAIN=" .env; then
+              sed -i "s/DOMAIN=.*/DOMAIN=${{ github.event.inputs.domain }}/" .env
+            else
+              echo "DOMAIN=${{ github.event.inputs.domain }}" >> .env
+            fi
+            
+            if grep -q "CERTBOT_EMAIL=" .env; then
+              sed -i "s/CERTBOT_EMAIL=.*/CERTBOT_EMAIL=${{ github.event.inputs.email }}/" .env
+            else
+              echo "CERTBOT_EMAIL=${{ github.event.inputs.email }}" >> .env
+            fi
+            
+            # Export environment variables
+            export DOMAIN="${{ github.event.inputs.domain }}"
+            export CERTBOT_EMAIL="${{ github.event.inputs.email }}"
+            
+            # Make setup script executable and run it
+            chmod +x scripts/setup_nginx.sh
+            bash scripts/setup_nginx.sh
+          EOF
+          
+      - name: Verify NGINX setup
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << EOF
+            cd "\$HOME/hbrm-test"
+            
+            echo "Checking NGINX container status..."
+            docker ps | grep nginx-proxy || echo "NGINX container not running"
+            
+            echo "Checking SSL certificate..."
+            docker exec nginx-proxy ls -la /etc/letsencrypt/live/${{ github.event.inputs.domain }}/ || echo "SSL certificate not found"
+            
+            echo "Testing HTTPS connection..."
+            curl -I https://${{ github.event.inputs.domain }}/health || echo "HTTPS health check failed"
+          EOF

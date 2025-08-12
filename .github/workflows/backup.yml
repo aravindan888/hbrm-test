@@ -1,0 +1,90 @@
+name: Backup n8n to Google Drive
+
+on:
+  schedule:
+    # Run daily at 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      backup_name:
+        description: 'Custom backup name (optional)'
+        required: false
+        type: string
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.VM_SSH_KEY }}" ]; then
+            echo "Error: VM_SSH_KEY secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_IP }}" ]; then
+            echo "Error: VM_IP secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_USER }}" ]; then
+            echo "Error: VM_USER secret is not set"
+            exit 1
+          fi
+          echo "All required secrets are present"
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+
+      - name: Test SSH connection
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} 'echo "SSH connection successful"'
+
+      - name: Run backup script
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            PROJECT_DIR="$HOME/hbrm-test"
+
+            if [ ! -d "$PROJECT_DIR" ]; then
+              echo "Error: Project directory not found. Please run setup-server workflow first."
+              exit 1
+            fi
+
+            cd "$PROJECT_DIR"
+
+            # Set custom backup name if provided
+            if [ -n "${{ github.event.inputs.backup_name }}" ]; then
+              export BACKUP_NAME="${{ github.event.inputs.backup_name }}"
+            fi
+
+            # Set up rclone configuration from environment variables if available
+            if [ -n "${{ secrets.RCLONE_CONFIG_GDRIVE_TYPE }}" ]; then
+              export RCLONE_CONFIG_GDRIVE_TYPE="${{ secrets.RCLONE_CONFIG_GDRIVE_TYPE }}"
+              export RCLONE_CONFIG_GDRIVE_CLIENT_ID="${{ secrets.RCLONE_CONFIG_GDRIVE_CLIENT_ID }}"
+              export RCLONE_CONFIG_GDRIVE_CLIENT_SECRET="${{ secrets.RCLONE_CONFIG_GDRIVE_CLIENT_SECRET }}"
+              export RCLONE_CONFIG_GDRIVE_TOKEN="${{ secrets.RCLONE_CONFIG_GDRIVE_TOKEN }}"
+              export RCLONE_CONFIG_GDRIVE_SCOPE="${{ secrets.RCLONE_CONFIG_GDRIVE_SCOPE }}"
+            fi
+
+            # Make backup script executable and run it
+            chmod +x scripts/backup_n8n.sh
+            bash scripts/backup_n8n.sh
+          EOF
+
+      - name: Verify backup
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            # Check if rclone is working and list recent backups
+            if command -v rclone &> /dev/null; then
+              echo "Recent backups in Google Drive:"
+              rclone ls gdrive:n8n-backups/ | grep "n8n_backup_" | tail -5 || echo "No backups found or rclone not configured"
+            else
+              echo "rclone not installed"
+            fi
+          EOF

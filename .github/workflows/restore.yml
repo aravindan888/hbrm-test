@@ -1,0 +1,118 @@
+name: Restore n8n from Google Drive Backup
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_file:
+        description: 'Backup file name to restore (leave empty to see list and choose)'
+        required: false
+        type: string
+      confirm_restore:
+        description: 'Type "CONFIRM" to proceed with restore (this will overwrite current data)'
+        required: true
+        type: string
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm_restore }}" != "CONFIRM" ]; then
+            echo "Error: You must type 'CONFIRM' to proceed with restore"
+            echo "This operation will overwrite your current n8n data"
+            exit 1
+          fi
+          echo "Restore confirmation received"
+
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.VM_SSH_KEY }}" ]; then
+            echo "Error: VM_SSH_KEY secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_IP }}" ]; then
+            echo "Error: VM_IP secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_USER }}" ]; then
+            echo "Error: VM_USER secret is not set"
+            exit 1
+          fi
+          echo "All required secrets are present"
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+
+      - name: Test SSH connection
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} 'echo "SSH connection successful"'
+
+      - name: List available backups
+        if: github.event.inputs.backup_file == ''
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            # Set up rclone configuration from environment variables if available
+            if [ -n "${{ secrets.RCLONE_CONFIG_GDRIVE_TYPE }}" ]; then
+              export RCLONE_CONFIG_GDRIVE_TYPE="${{ secrets.RCLONE_CONFIG_GDRIVE_TYPE }}"
+              export RCLONE_CONFIG_GDRIVE_CLIENT_ID="${{ secrets.RCLONE_CONFIG_GDRIVE_CLIENT_ID }}"
+              export RCLONE_CONFIG_GDRIVE_CLIENT_SECRET="${{ secrets.RCLONE_CONFIG_GDRIVE_CLIENT_SECRET }}"
+              export RCLONE_CONFIG_GDRIVE_TOKEN="${{ secrets.RCLONE_CONFIG_GDRIVE_TOKEN }}"
+              export RCLONE_CONFIG_GDRIVE_SCOPE="${{ secrets.RCLONE_CONFIG_GDRIVE_SCOPE }}"
+            fi
+
+            echo "Available backups in Google Drive:"
+            rclone ls gdrive:n8n-backups/ | grep "n8n_backup_" | sort -k2 -r | head -10
+            echo ""
+            echo "To restore a specific backup, re-run this workflow with the backup_file parameter"
+            echo "Example: n8n_backup_20240812_120000.tar.gz"
+          EOF
+
+      - name: Run restore script
+        if: github.event.inputs.backup_file != ''
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << EOF
+            PROJECT_DIR="\$HOME/hbrm-test"
+
+            if [ ! -d "\$PROJECT_DIR" ]; then
+              echo "Error: Project directory not found. Please run setup-server workflow first."
+              exit 1
+            fi
+
+            cd "\$PROJECT_DIR"
+
+            # Set up rclone configuration from environment variables if available
+            if [ -n "${{ secrets.RCLONE_CONFIG_GDRIVE_TYPE }}" ]; then
+              export RCLONE_CONFIG_GDRIVE_TYPE="${{ secrets.RCLONE_CONFIG_GDRIVE_TYPE }}"
+              export RCLONE_CONFIG_GDRIVE_CLIENT_ID="${{ secrets.RCLONE_CONFIG_GDRIVE_CLIENT_ID }}"
+              export RCLONE_CONFIG_GDRIVE_CLIENT_SECRET="${{ secrets.RCLONE_CONFIG_GDRIVE_CLIENT_SECRET }}"
+              export RCLONE_CONFIG_GDRIVE_TOKEN="${{ secrets.RCLONE_CONFIG_GDRIVE_TOKEN }}"
+              export RCLONE_CONFIG_GDRIVE_SCOPE="${{ secrets.RCLONE_CONFIG_GDRIVE_SCOPE }}"
+            fi
+
+            # Set backup file to restore
+            export BACKUP_FILE="${{ github.event.inputs.backup_file }}"
+
+            # Make restore script executable and run it
+            chmod +x scripts/restore_backup.sh
+            bash scripts/restore_backup.sh
+          EOF
+
+      - name: Verify restore
+        if: github.event.inputs.backup_file != ''
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "Checking n8n container status after restore..."
+            docker ps | grep n8n || echo "n8n container not running"
+
+            echo "Checking n8n data volume..."
+            docker run --rm -v n8n_data:/data alpine:latest ls -la /data | head -10
+          EOF

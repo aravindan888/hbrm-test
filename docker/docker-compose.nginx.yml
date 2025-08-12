@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot_data:/var/www/certbot:ro
+      - certbot_conf:/etc/letsencrypt:ro
+    depends_on:
+      - n8n
+    restart: unless-stopped
+    networks:
+      - n8n_network
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - certbot_data:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+    command: certonly --webroot --webroot-path=/var/www/certbot --email ${CERTBOT_EMAIL} --agree-tos --no-eff-email -d ${DOMAIN}
+    depends_on:
+      - nginx
+
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    environment:
+      - GENERIC_TIMEZONE=${TZ:-Asia/Kolkata}
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+      - WEBHOOK_URL=https://${DOMAIN}
+      - N8N_HOST=${DOMAIN}
+      - N8N_PORT=443
+      - N8N_PROTOCOL=https
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+    networks:
+      - n8n_network
+    expose:
+      - "5678"
+
+volumes:
+  n8n_data:
+  certbot_data:
+  certbot_conf:
+
+networks:
+  n8n_network:
+    driver: bridge
