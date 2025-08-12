@@ -34,80 +34,80 @@ jobs:
             echo "Error: VM_USER secret is not set"
             exit 1
           fi
-          echo "All required secrets are present"
+          echo "✅ All required secrets are present"
           
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          printf "%s" "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.VM_IP }} 2>/dev/null >> ~/.ssh/known_hosts
           
       - name: Debug server status
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
             echo "=== SYSTEM INFORMATION ==="
-            uname -a
+            uname -a || { echo "Failed to get system info"; exit 1; }
             echo ""
             
             echo "=== DISK SPACE ==="
-            df -h
+            df -h || { echo "Failed to get disk space"; exit 1; }
             echo ""
             
             echo "=== DOCKER STATUS ==="
-            docker --version || echo "Docker not installed"
-            docker compose version || docker-compose --version || echo "Docker Compose not available"
-            sudo systemctl status docker --no-pager || echo "Docker service status unknown"
+            if command -v docker &>/dev/null; then
+              docker --version
+              docker compose version 2>/dev/null || docker-compose --version 2>/dev/null || echo "Docker Compose not available"
+              if command -v systemctl &>/dev/null; then
+                sudo systemctl status docker --no-pager 2>/dev/null || echo "Docker service status unknown"
+              else
+                echo "Systemctl not available"
+              fi
+            else
+              echo "Docker not installed"
+            fi
             echo ""
             
             echo "=== PROJECT DIRECTORY ==="
             PROJECT_DIR="$HOME/hbrm-test"
             if [ -d "$PROJECT_DIR" ]; then
               echo "✅ Project directory exists: $PROJECT_DIR"
-              cd "$PROJECT_DIR"
+              cd "$PROJECT_DIR" || { echo "Cannot cd into project dir"; exit 1; }
               echo "Directory contents:"
               ls -la
               echo ""
               echo "Git status:"
-              git status || echo "Not a git repository"
+              git status 2>/dev/null || echo "Not a git repository"
               echo ""
               echo "Scripts directory:"
-              ls -la scripts/ || echo "Scripts directory not found"
+              ls -la scripts/ 2>/dev/null || echo "Scripts directory not found"
               echo ""
               echo "Docker directory:"
-              ls -la docker/ || echo "Docker directory not found"
+              ls -la docker/ 2>/dev/null || echo "Docker directory not found"
               echo ""
-              if [ -f ".env" ]; then
-                echo "✅ .env file exists"
-              else
-                echo "❌ .env file missing"
-              fi
-              if [ -f ".env.example" ]; then
-                echo "✅ .env.example file exists"
-              else
-                echo "❌ .env.example file missing"
-              fi
+              [ -f ".env" ] && echo "✅ .env file exists" || echo "❌ .env file missing"
+              [ -f ".env.example" ] && echo "✅ .env.example file exists" || echo "❌ .env.example file missing"
             else
               echo "❌ Project directory not found: $PROJECT_DIR"
               echo "Home directory contents:"
-              ls -la $HOME/
+              ls -la "$HOME"
             fi
             echo ""
             
             echo "=== RUNNING CONTAINERS ==="
-            docker ps -a || echo "Cannot list containers"
+            docker ps -a 2>/dev/null || echo "Cannot list containers"
             echo ""
             
             echo "=== DOCKER IMAGES ==="
-            docker images || echo "Cannot list images"
+            docker images 2>/dev/null || echo "Cannot list images"
             echo ""
             
             echo "=== NETWORK CONNECTIVITY ==="
-            ping -c 3 google.com || echo "No internet connectivity"
+            ping -c 3 google.com 2>/dev/null || echo "No internet connectivity"
             echo ""
             
             echo "=== USER GROUPS ==="
-            groups
+            groups || echo "Cannot list groups"
             echo ""
             
             echo "=== ENVIRONMENT VARIABLES ==="
