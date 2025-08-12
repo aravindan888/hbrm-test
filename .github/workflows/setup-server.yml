@@ -1,5 +1,4 @@
 name: Deploy to VM
-
 on:
   push:
     branches:
@@ -8,37 +7,50 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-
+        uses: actions/checkout@v4  # Updated to latest version
+        
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
-
-      - name: SSH into VM and deploy
+          
+      - name: Deploy to VM
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} "
-            echo 'Updating system and installing dependencies...'
-            sudo apt update &&
-            sudo apt install -y docker.io git &&
-            sudo systemctl enable docker &&
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            set -e  # Exit on any error
+            
+            echo "Updating system and installing dependencies..."
+            sudo apt update
+            sudo apt install -y docker.io git
+            sudo systemctl enable docker
             sudo systemctl start docker
-
-            echo 'Cloning repository...'
+            
+            # Add user to docker group (requires logout/login to take effect)
+            sudo usermod -aG docker $USER
+            
+            echo "Cloning repository..."
             rm -rf ~/hbrm-test
-            git clone https://${{ secrets.GH_PAT }}@github.com/aravindan888/hbrm-test ~/hbrm-test
-
-            echo 'Moving files from hbrm-main to root...'
+            
+            # Clone with error handling
+            if ! git clone https://${{ secrets.GH_PAT }}@github.com/aravindan888/hbrm-test ~/hbrm-test; then
+              echo "Failed to clone repository"
+              exit 1
+            fi
+            
+            echo "Moving files from hbrm-main to root..."
             if [ -d ~/hbrm-test/hbrm-main ]; then
               shopt -s dotglob
-              mv ~/hbrm-test/hbrm-main/* ~/
+              cp -r ~/hbrm-test/hbrm-main/* ~/
               rm -rf ~/hbrm-test
+              echo "Files moved successfully"
+            else
+              echo "Warning: hbrm-main directory not found"
+              ls -la ~/hbrm-test/
             fi
-
-            echo 'Deployment complete.'
-          "
+            
+            echo "Deployment complete."
+          EOF
