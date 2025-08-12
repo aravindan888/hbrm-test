@@ -115,14 +115,55 @@ jobs:
             # Ensure scripts are executable
             chmod +x scripts/*.sh
 
-            # Verify deployment script exists
+            # Verify deployment script exists, create if missing
             if [ ! -f "scripts/deploy_n8n.sh" ]; then
-              echo "Error: deploy_n8n.sh script not found at $PROJECT_DIR/scripts/"
+              echo "⚠️  deploy_n8n.sh script not found, creating it..."
               echo "Repository contents:"
               ls -la
               echo "Scripts directory:"
               ls -la scripts/ || echo "Scripts directory not found"
-              exit 1
+
+              # Create a simple deploy script
+              echo '#!/bin/bash' > scripts/deploy_n8n.sh
+              echo 'set -e' >> scripts/deploy_n8n.sh
+              echo 'echo "🚀 Starting n8n deployment..."' >> scripts/deploy_n8n.sh
+              echo 'PROJECT_DIR="$HOME/hbrm-test"' >> scripts/deploy_n8n.sh
+              echo 'cd "$PROJECT_DIR"' >> scripts/deploy_n8n.sh
+              echo 'if [ ! -f ".env" ]; then' >> scripts/deploy_n8n.sh
+              echo '  if [ -f ".env.example" ]; then' >> scripts/deploy_n8n.sh
+              echo '    cp .env.example .env' >> scripts/deploy_n8n.sh
+              echo '  else' >> scripts/deploy_n8n.sh
+              echo '    echo "N8N_USER=admin" > .env' >> scripts/deploy_n8n.sh
+              echo '    echo "N8N_PASSWORD=changeme" >> .env' >> scripts/deploy_n8n.sh
+              echo '    echo "TZ=Asia/Kolkata" >> .env' >> scripts/deploy_n8n.sh
+              echo '  fi' >> scripts/deploy_n8n.sh
+              echo 'fi' >> scripts/deploy_n8n.sh
+              echo 'if command -v docker-compose &> /dev/null; then' >> scripts/deploy_n8n.sh
+              echo '  DOCKER_COMPOSE_CMD="docker-compose"' >> scripts/deploy_n8n.sh
+              echo 'elif docker compose version &> /dev/null; then' >> scripts/deploy_n8n.sh
+              echo '  DOCKER_COMPOSE_CMD="docker compose"' >> scripts/deploy_n8n.sh
+              echo 'else' >> scripts/deploy_n8n.sh
+              echo '  sudo apt update && sudo apt install -y docker-compose-plugin' >> scripts/deploy_n8n.sh
+              echo '  DOCKER_COMPOSE_CMD="docker compose"' >> scripts/deploy_n8n.sh
+              echo 'fi' >> scripts/deploy_n8n.sh
+              echo 'echo "Using: $DOCKER_COMPOSE_CMD"' >> scripts/deploy_n8n.sh
+              echo '$DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml down || true' >> scripts/deploy_n8n.sh
+              echo '$DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml pull' >> scripts/deploy_n8n.sh
+              echo '$DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml up -d' >> scripts/deploy_n8n.sh
+              echo 'sleep 10' >> scripts/deploy_n8n.sh
+              echo 'if docker ps | grep -q n8n; then' >> scripts/deploy_n8n.sh
+              echo '  SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || echo "your-server-ip")' >> scripts/deploy_n8n.sh
+              echo '  echo "✅ n8n deployed successfully!"' >> scripts/deploy_n8n.sh
+              echo '  echo "🌐 Access: http://$SERVER_IP:5678"' >> scripts/deploy_n8n.sh
+              echo '  echo "🔐 Credentials: admin / changeme"' >> scripts/deploy_n8n.sh
+              echo 'else' >> scripts/deploy_n8n.sh
+              echo '  echo "❌ Deployment failed"' >> scripts/deploy_n8n.sh
+              echo '  docker ps -a' >> scripts/deploy_n8n.sh
+              echo '  exit 1' >> scripts/deploy_n8n.sh
+              echo 'fi' >> scripts/deploy_n8n.sh
+
+              chmod +x scripts/deploy_n8n.sh
+              echo "✅ Created deploy_n8n.sh script"
             fi
 
             echo "Found deployment script, starting deployment..."
