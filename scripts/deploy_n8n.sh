@@ -1,32 +1,24 @@
 #!/bin/bash
 set -e # Exit immediately if a command exits with a non-zero status.
 
-echo "--- Starting n8n Deployment Script ---"
-echo "Current user: $(whoami)"
-echo "User groups: $(groups)"
-echo "Current directory: $(pwd)"
+echo "--- Running n8n deployment script ---"
 
-cd ~/hbrm-test
-echo "Changed directory to $(pwd)"
-
-if [ ! -f ".env" ]; then
-  if [ -f ".env.example" ]; then
-    echo "Creating .env from .env.example"
-    cp .env.example .env
-  else
-    echo ".env.example not found, creating basic .env file"
-    touch .env
-  fi
+# The script assumes it's being run from the project root directory
+if [ ! -f "docker/docker-compose.n8n.yml" ]; then
+    echo "Error: Must be run from the project root."
+    exit 1
 fi
 
-echo "Bringing down existing n8n containers..."
-# The || true is good here to prevent failure if containers don't exist
-docker compose -f docker/docker-compose.n8n.yml down || true
+if [ ! -f ".env" ]; then
+  echo "INFO: .env file not found. Copying from .env.example"
+  cp .env.example .env
+fi
 
-echo "Pulling latest n8n images..."
+# Docker commands should now work without sudo
+echo "Pulling latest images..."
 docker compose -f docker/docker-compose.n8n.yml pull
 
-echo "Starting new n8n containers..."
-docker compose -f docker/docker-compose.n8n.yml up -d
+echo "Restarting services..."
+docker compose -f docker/docker-compose.n8n.yml up -d --remove-orphans
 
-echo "--- Deployment Script Finished Successfully ---"
+echo "--- Deployment script finished. ---"
