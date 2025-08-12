@@ -1,6 +1,8 @@
 name: Deploy n8n
+
 on:
   workflow_dispatch:
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -51,8 +53,10 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
             echo "SSH connection successful"
+
             echo "Checking Docker installation..."
             docker --version || { echo "Docker not found!"; exit 1; }
+
             echo "Checking Docker Compose..."
             if command -v docker-compose &> /dev/null; then
               echo "docker-compose found: $(docker-compose --version)"
@@ -62,6 +66,7 @@ jobs:
               echo "Docker Compose not found! Installing..."
               sudo apt update && sudo apt install -y docker-compose-plugin
             fi
+
             echo "Checking Docker service..."
             sudo systemctl is-active docker || { echo "Docker service not running!"; exit 1; }
           EOF
@@ -70,17 +75,46 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
             PROJECT_DIR="$HOME/hbrm-test"
+
             # Check if project directory exists
             if [ ! -d "$PROJECT_DIR" ]; then
               echo "Error: Project directory $PROJECT_DIR not found!"
               echo "Please run the 'Setup Server' workflow first to clone the repository."
               exit 1
             fi
-            # Update repository to get latest changes
-            echo "Updating repository..."
+
+            # Force update repository and overwrite local changes
+            echo "Updating repository and overwriting local changes..."
             cd "$PROJECT_DIR"
+
+            # Backup current .env if it exists
+            if [ -f ".env" ]; then
+              cp .env .env.backup
+              echo "Backed up existing .env file"
+            fi
+
+            # Reset any local changes and force update
+            echo "Resetting local changes..."
+            git reset --hard HEAD
+            git clean -fd
+
+            # Configure git pull strategy
             git config pull.rebase false
-            git pull origin main || echo "Warning: Could not update repository"
+
+            # Force pull latest changes
+            echo "Pulling latest changes..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Restore .env if backup exists
+            if [ -f ".env.backup" ]; then
+              mv .env.backup .env
+              echo "Restored .env file"
+            fi
+
+            # Ensure scripts are executable
+            chmod +x scripts/*.sh
+
             # Verify deployment script exists
             if [ ! -f "scripts/deploy_n8n.sh" ]; then
               echo "Error: deploy_n8n.sh script not found at $PROJECT_DIR/scripts/"
@@ -90,6 +124,7 @@ jobs:
               ls -la scripts/ || echo "Scripts directory not found"
               exit 1
             fi
+
             echo "Found deployment script, starting deployment..."
             chmod +x scripts/deploy_n8n.sh
             bash scripts/deploy_n8n.sh
