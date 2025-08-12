@@ -1,0 +1,140 @@
+name: Emergency Deploy n8n (Bypass Git Issues)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_emergency:
+        description: 'Type "EMERGENCY" to confirm emergency deployment'
+        required: true
+        type: string
+
+jobs:
+  emergency-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm_emergency }}" != "EMERGENCY" ]; then
+            echo "Error: You must type 'EMERGENCY' to confirm"
+            exit 1
+          fi
+          echo "Emergency deployment confirmed"
+        
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.VM_SSH_KEY }}" ]; then
+            echo "Error: VM_SSH_KEY secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_IP }}" ]; then
+            echo "Error: VM_IP secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VM_USER }}" ]; then
+            echo "Error: VM_USER secret is not set"
+            exit 1
+          fi
+          echo "All required secrets are present"
+          
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+          
+      - name: Emergency deployment (bypass git issues)
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "🚨 EMERGENCY DEPLOYMENT STARTING..."
+            
+            # Remove all old directories
+            rm -rf $HOME/n8n-hbrm $HOME/hbrm-test
+            
+            # Create fresh project directory
+            mkdir -p $HOME/hbrm-test
+            cd $HOME/hbrm-test
+            
+            # Clone fresh repository
+            if [ -n "${{ secrets.GITHUB_TOKEN }}" ]; then
+              git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} .
+            else
+              git clone https://github.com/${{ github.repository }} .
+            fi
+            
+            # Install Docker Compose if missing
+            if ! docker compose version &> /dev/null && ! command -v docker-compose &> /dev/null; then
+              echo "Installing Docker Compose..."
+              sudo apt update
+              sudo apt install -y docker-compose-plugin
+            fi
+            
+            # Create .env file
+            cat > .env << 'ENVEOF'
+N8N_USER=admin
+N8N_PASSWORD=changeme
+DOMAIN=n8n.yourdomain.com
+CERTBOT_EMAIL=your-email@domain.com
+TZ=Asia/Kolkata
+ENVEOF
+            
+            # Make scripts executable
+            chmod +x scripts/*.sh
+            
+            # Determine Docker Compose command
+            if command -v docker-compose &> /dev/null; then
+              DOCKER_COMPOSE_CMD="docker-compose"
+            else
+              DOCKER_COMPOSE_CMD="docker compose"
+            fi
+            
+            echo "Using Docker Compose command: $DOCKER_COMPOSE_CMD"
+            
+            # Stop any existing containers
+            $DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml down || true
+            
+            # Pull latest image
+            $DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml pull
+            
+            # Start n8n
+            $DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml up -d
+            
+            # Wait and verify
+            sleep 15
+            
+            if docker ps | grep -q n8n; then
+              echo "✅ EMERGENCY DEPLOYMENT SUCCESSFUL!"
+              echo "🌐 Access n8n at: http://$(curl -s ifconfig.me 2>/dev/null || echo 'your-server-ip'):5678"
+              echo "🔐 Credentials: admin / changeme"
+              
+              # Show container status
+              echo "📋 Container status:"
+              docker ps | grep n8n
+              
+              # Show recent logs
+              echo "📄 Recent logs:"
+              docker logs --tail 10 $(docker ps | grep n8n | awk '{print $1}') || true
+              
+            else
+              echo "❌ EMERGENCY DEPLOYMENT FAILED!"
+              echo "Container status:"
+              docker ps -a
+              exit 1
+            fi
+          EOF
+          
+      - name: Verify emergency deployment
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
+            echo "=== FINAL VERIFICATION ==="
+            echo "Project directory: $([ -d "$HOME/hbrm-test" ] && echo "✅ EXISTS" || echo "❌ MISSING")"
+            echo "Docker Compose file: $([ -f "$HOME/hbrm-test/docker/docker-compose.n8n.yml" ] && echo "✅ EXISTS" || echo "❌ MISSING")"
+            echo ".env file: $([ -f "$HOME/hbrm-test/.env" ] && echo "✅ EXISTS" || echo "❌ MISSING")"
+            echo "n8n container: $(docker ps | grep -q n8n && echo "✅ RUNNING" || echo "❌ NOT RUNNING")"
+            echo ""
+            echo "If all items show ✅, your n8n deployment is successful!"
+          EOF
