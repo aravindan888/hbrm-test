@@ -1,12 +1,13 @@
 #!/bin/bash
-
-cd ~/n8n-hbrm
-
-# If .env doesn’t exist, create it from example
+cd ~/hbrm-test
 if [ ! -f ".env" ]; then
-  cp .env.example .env
+  if [ -f ".env.example" ]; then
+    cp .env.example .env
+  else
+    echo ".env.example not found, creating basic .env file"
+    touch .env
+  fi
 fi
-
 docker compose -f docker/docker-compose.n8n.yml down || true
 docker compose -f docker/docker-compose.n8n.yml pull
 docker compose -f docker/docker-compose.n8n.yml up -d
