@@ -1,9 +1,22 @@
-name: Test Workflow
+name: Test Manual Run
+
 on:
   workflow_dispatch:
+    inputs:
+      test_param:
+        description: 'Enter a test value'
+        required: false
+        default: 'default'
+        type: string
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
-      - run: echo "Workflow triggered"
+      - name: Display test parameter
+        run: |
+          echo "🧪 Test workflow running!"
+          echo "Test parameter: ${{ github.event.inputs.test_param }}"
+          echo "Current time: $(date)"
+          echo "✅ Workflow completed successfully!"
