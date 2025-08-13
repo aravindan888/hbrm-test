@@ -1,0 +1,32 @@
+name: Test Workflow Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_message:
+        description: 'Test message to display'
+        required: true
+        default: 'Hello from workflow_dispatch!'
+        type: string
+      test_choice:
+        description: 'Choose a test option'
+        required: true
+        default: 'option1'
+        type: choice
+        options:
+        - option1
+        - option2
+        - option3
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Display test inputs
+        run: |
+          echo "🧪 Testing workflow_dispatch functionality"
+          echo "Test message: ${{ github.event.inputs.test_message }}"
+          echo "Test choice: ${{ github.event.inputs.test_choice }}"
+          echo "Current time: $(date)"
+          echo "✅ workflow_dispatch is working correctly!"

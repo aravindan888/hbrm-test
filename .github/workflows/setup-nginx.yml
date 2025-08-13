@@ -7,10 +7,12 @@ on:
         description: 'Domain name for SSL certificate (e.g., n8n.yourdomain.com)'
         required: true
         type: string
+        default: 'n8n.yourdomain.com'
       email:
         description: 'Email address for Let''s Encrypt notifications'
         required: true
         type: string
+        default: 'your-email@domain.com'
 
 jobs:
   setup-nginx:
@@ -19,7 +21,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
+      - name: Display workflow inputs
+        run: |
+          echo "🚀 Starting NGINX + SSL setup"
+          echo "Domain: ${{ github.event.inputs.domain }}"
+          echo "Email: ${{ github.event.inputs.email }}"
+          echo "Timestamp: $(date)"
+
       - name: Validate inputs
         run: |
           if [ -z "${{ github.event.inputs.domain }}" ]; then
