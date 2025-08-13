@@ -62,38 +62,41 @@ jobs:
           
       - name: Setup NGINX with SSL
         run: |
+          DOMAIN="${{ github.event.inputs.domain }}"
+          EMAIL="${{ github.event.inputs.email }}"
+
           ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << EOF
             PROJECT_DIR="\$HOME/hbrm-test"
-            
+
             if [ ! -d "\$PROJECT_DIR" ]; then
               echo "Error: Project directory not found. Please run setup-server workflow first."
               exit 1
             fi
-            
+
             cd "\$PROJECT_DIR"
-            
+
             # Update .env file with domain and email
             if [ ! -f ".env" ]; then
               cp .env.example .env
             fi
-            
+
             # Add or update domain and email in .env
             if grep -q "DOMAIN=" .env; then
-              sed -i "s/DOMAIN=.*/DOMAIN=${{ github.event.inputs.domain }}/" .env
+              sed -i "s/DOMAIN=.*/DOMAIN=${DOMAIN}/" .env
             else
-              echo "DOMAIN=${{ github.event.inputs.domain }}" >> .env
+              echo "DOMAIN=${DOMAIN}" >> .env
             fi
-            
+
             if grep -q "CERTBOT_EMAIL=" .env; then
-              sed -i "s/CERTBOT_EMAIL=.*/CERTBOT_EMAIL=${{ github.event.inputs.email }}/" .env
+              sed -i "s/CERTBOT_EMAIL=.*/CERTBOT_EMAIL=${EMAIL}/" .env
             else
-              echo "CERTBOT_EMAIL=${{ github.event.inputs.email }}" >> .env
+              echo "CERTBOT_EMAIL=${EMAIL}" >> .env
             fi
-            
+
             # Export environment variables
-            export DOMAIN="${{ github.event.inputs.domain }}"
-            export CERTBOT_EMAIL="${{ github.event.inputs.email }}"
-            
+            export DOMAIN="${DOMAIN}"
+            export CERTBOT_EMAIL="${EMAIL}"
+
             # Make setup script executable and run it
             chmod +x scripts/setup_nginx.sh
             bash scripts/setup_nginx.sh
@@ -101,15 +104,17 @@ jobs:
           
       - name: Verify NGINX setup
         run: |
+          DOMAIN="${{ github.event.inputs.domain }}"
+
           ssh -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << EOF
             cd "\$HOME/hbrm-test"
-            
+
             echo "Checking NGINX container status..."
             docker ps | grep nginx-proxy || echo "NGINX container not running"
-            
+
             echo "Checking SSL certificate..."
-            docker exec nginx-proxy ls -la /etc/letsencrypt/live/${{ github.event.inputs.domain }}/ || echo "SSL certificate not found"
-            
+            docker exec nginx-proxy ls -la /etc/letsencrypt/live/${DOMAIN}/ || echo "SSL certificate not found"
+
             echo "Testing HTTPS connection..."
-            curl -I https://${{ github.event.inputs.domain }}/health || echo "HTTPS health check failed"
+            curl -I https://${DOMAIN}/health || echo "HTTPS health check failed"
           EOF
