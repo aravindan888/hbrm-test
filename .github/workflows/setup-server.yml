@@ -1,55 +1,63 @@
 name: Setup Server
+
 on:
   workflow_dispatch:
+
 jobs:
   setup:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo (on GitHub side)
         uses: actions/checkout@v4
+
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
-      - name: Install Docker, Docker Compose and Git
+
+      - name: Install Docker, Docker Compose, and Git
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
-            # Install Docker, Docker Compose and Git
+            # Install Docker and Git
             if ! command -v docker &> /dev/null; then
-              echo "Installing Docker, Docker Compose and Git..."
+              echo "Installing Docker and Git..."
               sudo apt update
-              sudo apt install -y docker.io docker-compose git curl
+              sudo apt install -y docker.io git curl
               sudo systemctl enable docker
               sudo systemctl start docker
               sudo usermod -aG docker $USER
               echo "Docker installation completed"
             else
               echo "Docker is already installed"
-              # Check if docker-compose is installed
-              if ! command -v docker-compose &> /dev/null; then
-                echo "Installing Docker Compose..."
-                sudo apt install -y docker-compose
-              fi
             fi
-            
-            # Verify Docker installation
-            echo "Verifying Docker installation..."
+
+            # Install Docker Compose if not present
+            if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+              echo "Installing Docker Compose..."
+              # Install Docker Compose v2 (comes with docker-compose-plugin)
+              sudo apt update
+              sudo apt install -y docker-compose-plugin
+              echo "Docker Compose installation completed"
+            else
+              echo "Docker Compose is already installed"
+            fi
+
+            # Verify installations
+            echo "Verifying installations..."
             docker --version || sudo docker --version
+            docker compose version || docker-compose --version
             sudo systemctl status docker --no-pager
-            
-            # Verify Docker Compose installation
-            echo "Verifying Docker Compose installation..."
-            docker-compose --version || sudo docker-compose --version
-            
-            echo "All installations completed successfully!"
           EOF
+
       - name: Clone or update repository
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
             # Set up directory for the project
             PROJECT_DIR="$HOME/hbrm-test"
+
             if [ -d "$PROJECT_DIR/.git" ]; then
               echo "Repo exists. Pulling latest changes..."
               cd "$PROJECT_DIR" && git pull origin main
@@ -63,5 +71,6 @@ jobs:
                 git clone https://github.com/${{ github.repository }} "$PROJECT_DIR"
               fi
             fi
+
             echo "Repository setup completed successfully!"
           EOF
