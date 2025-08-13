@@ -98,13 +98,15 @@ jobs:
             
             # Create .env file
             if [ ! -f ".env" ]; then
-              cp .env.example .env 2>/dev/null || cat > .env << 'ENVEOF'
-N8N_USER=admin
-N8N_PASSWORD=changeme
-DOMAIN=n8n.yourdomain.com
-CERTBOT_EMAIL=your-email@domain.com
-TZ=Asia/Kolkata
-ENVEOF
+              if [ -f ".env.example" ]; then
+                cp .env.example .env
+              else
+                echo "N8N_USER=admin" > .env
+                echo "N8N_PASSWORD=changeme" >> .env
+                echo "DOMAIN=n8n.yourdomain.com" >> .env
+                echo "CERTBOT_EMAIL=your-email@domain.com" >> .env
+                echo "TZ=Asia/Kolkata" >> .env
+              fi
             fi
             
             echo "✅ Server reset completed!"
