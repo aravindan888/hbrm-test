@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, initial-scale=1.0">
+    <title>Automated n8n Deployment Framework</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #0f172a;
+        }
+        .slide {
+            width: 1920px;
+            height: 1080px;
+            position: relative;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            padding: 0 120px;
+            text-align: center;
+        }
+        .header {
+            margin-bottom: 60px;
+            width: 100%;
+        }
+        .title {
+            font-size: 68px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 30px;
+            background: linear-gradient(90deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            font-size: 28px;
+            font-weight: 400;
+            color: #cbd5e1;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+        .decoration {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            opacity: 0.1;
+        }
+        .decoration .circle {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+        }
+        .decoration .circle:nth-child(1) {
+            width: 400px;
+            height: 400px;
+            top: -100px;
+            left: -100px;
+        }
+        .decoration .circle:nth-child(2) {
+            width: 300px;
+            height: 300px;
+            bottom: -50px;
+            right: -50px;
+        }
+        .decoration .circle:nth-child(3) {
+            width: 200px;
+            height: 200px;
+            top: 50%;
+            left: 10%;
+        }
+        .decoration .circle:nth-child(4) {
+            width: 150px;
+            height: 150px;
+            top: 20%;
+            right: 15%;
+        }
+        .logo-container {
+            position: absolute;
+            bottom: 40px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+        .content.slide-content-2 {
+            padding: 80px 120px;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+        .problems-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            flex-grow: 1;
+            width: 100%;
+        }
+        .problem-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 16px;
+            padding: 24px 30px;
+            backdrop-filter: blur(10px);
+            border-left: 4px solid #60a5fa;
+            transition: all 0.3s ease;
+        }
+        .problem-item:hover {
+            transform: translateX(10px);
+            border-left-color: #a78bfa;
+            background: rgba(30, 41, 59, 0.8);
+        }
+        .problem-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            background: rgba(96, 165, 250, 0.2);
+            flex-shrink: 0;
+        }
+        .problem-icon i {
+            font-size: 24px;
+            color: #60a5fa;
+        }
+        .problem-text {
+            font-size: 22px;
+            line-height: 1.5;
+            color: #e2e8f0;
+        }
+        .highlight {
+            color: #f87171;
+            font-weight: 500;
+        }
+        .decoration.slide-2-decoration .circle:nth-child(1) {
+            width: 500px;
+            height: 500px;
+            top: -150px;
+            right: -150px;
+            opacity: 0.05;
+        }
+        .decoration.slide-2-decoration .circle:nth-child(2) {
+            width: 300px;
+            height: 300px;
+            bottom: -100px;
+            left: -100px;
+            opacity: 0.05;
+        }
+        .content.slide-content-3 {
+            padding: 80px 120px;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+        .solution-container {
+            display: flex;
+            flex-grow: 1;
+            gap: 40px;
+        }
+        .solution-list {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .solution-item {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 16px;
+            padding: 20px 25px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        .solution-item:hover {
+            transform: translateX(10px);
+            background: rgba(30, 41, 59, 0.8);
+        }
+        .solution-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            background: rgba(96, 165, 250, 0.2);
+            flex-shrink: 0;
+        }
+        .solution-icon i {
+            font-size: 28px;
+            color: #60a5fa;
+        }
+        .solution-text {
+            font-size: 22px;
+            line-height: 1.4;
+            color: #e2e8f0;
+        }
+        .solution-text strong {
+            color: #a78bfa;
+            font-weight: 600;
+        }
+        .impact-section {
+            flex: 2;
+            background: rgba(167, 139, 250, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .impact-title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 25px;
+            color: #a78bfa;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .impact-title i {
+            font-size: 32px;
+        }
+        .impact-text {
+            font-size: 20px;
+            line-height: 1.6;
+            color: #e2e8f0;
+        }
+        .highlight {
+            color: #60a5fa;
+            font-weight: 500;
+        }
+        .content.slide-content-4 {
+            padding: 80px 120px;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            flex-grow: 1;
+            width: 100%;
+        }
+        .feature-card {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border-left: 4px solid #60a5fa;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        .feature-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        .feature-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
+            background: rgba(96, 165, 250, 0.2);
+            flex-shrink: 0;
+        }
+        .feature-icon i {
+            font-size: 28px;
+            color: #60a5fa;
+        }
+        .feature-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        .feature-description {
+            font-size: 20px;
+            line-height: 1.5;
+            color: #cbd5e1;
+            flex-grow: 1;
+        }
+        .content.slide-content-5 {
+            padding: 80px 120px;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+        .architecture-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex-grow: 1;
+            width: 100%;
+        }
+        .architecture-row {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+        }
+        .stage-card {
+            flex: 1;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        .stage-card:hover {
+            transform: translateY(-5px);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        .stage-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 15px;
+        }
+        .stage-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            background: rgba(96, 165, 250, 0.2);
+            flex-shrink: 0;
+        }
+        .stage-icon i {
+            font-size: 24px;
+            color: #60a5fa;
+        }
+        .stage-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        .stage-description {
+            font-size: 18px;
+            line-height: 1.4;
+            color: #cbd5e1;
+            flex-grow: 1;
+        }
+        .stage-number {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 48px;
+            font-weight: 700;
+            opacity: 0.1;
+            color: #60a5fa;
+        }
+        .content.slide-content-6 {
+            padding: 80px 120px;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+        .workflow-container {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            justify-content: center;
+            width: 100%;
+        }
+        .workflow-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            gap: 20px;
+            margin-bottom: 60px;
+        }
+        .workflow-step {
+            flex: 1;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .workflow-step:hover {
+            transform: translateY(-10px);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+        }
+        .step-number {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+        }
+        .step-icon {
+            font-size: 48px;
+            color: #60a5fa;
+            margin-bottom: 20px;
+        }
+        .step-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 15px;
+        }
+        .step-description {
+            font-size: 18px;
+            line-height: 1.5;
+            color: #cbd5e1;
+            flex-grow: 1;
+        }
+        .workflow-arrow {
+            color: #60a5fa;
+            font-size: 36px;
+            margin: 0 10px;
+        }
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 40px;
+        }
+        .flow-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .flow-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(96, 165, 250, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            color: #60a5fa;
+        }
+        .flow-text {
+            font-size: 18px;
+            font-weight: 500;
+            color: #e2e8f0;
+            text-align: center;
+            max-width: 150px;
+        }
+        .content.slide-content-7 {
+            padding: 80px 120px;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 30px;
+            flex-grow: 1;
+            width: 100%;
+        }
+        .tech-card {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        .tech-card:hover {
+            transform: translateY(-8px);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+        }
+        .tech-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .tech-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 70px;
+            height: 70px;
+            border-radius: 16px;
+            background: rgba(96, 165, 250, 0.2);
+            flex-shrink: 0;
+        }
+        .tech-icon i {
+            font-size: 36px;
+            color: #60a5fa;
+        }
+        .tech-title {
+            font-size: 26px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        .tech-tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        .tech-tool {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(167, 139, 250, 0.1);
+            border-radius: 30px;
+            padding: 10px 18px;
+            border: 1px solid rgba(167, 139, 250, 0.3);
+        }
+        .tech-tool i {
+            font-size: 20px;
+            color: #a78bfa;
+        }
+        .tech-tool span {
+            font-size: 18px;
+            font-weight: 500;
+            color: #e2e8f0;
+        }
+        .tech-description {
+            font-size: 20px;
+            line-height: 1.5;
+            color: #cbd5e1;
+            flex-grow: 1;
+        }
+        .content.slide-content-8 {
+            padding: 60px 100px;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+        .sdg-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 25px;
+            flex-grow: 1;
+            width: 100%;
+        }
+        .sdg-card {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 16px;
+            padding: 22px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            border-left: 4px solid transparent;
+        }
+        .sdg-card:hover {
+            transform: translateY(-5px);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        .sdg-3 { border-left-color: #4c9f38; }
+        .sdg-4 { border-left-color: #c5192d; }
+        .sdg-6 { border-left-color: #26bde2; }
+        .sdg-7 { border-left-color: #fcc30b; }
+        .sdg-13 { border-left-color: #48773e; }
+        .sdg-17 { border-left-color: #19486a; }
+        .sdg-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .sdg-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            flex-shrink: 0;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .sdg-3 .sdg-icon { background: rgba(76, 159, 56, 0.2); color: #4c9f38; }
+        .sdg-4 .sdg-icon { background: rgba(197, 25, 45, 0.2); color: #c5192d; }
+        .sdg-6 .sdg-icon { background: rgba(38, 189, 226, 0.2); color: #26bde2; }
+        .sdg-7 .sdg-icon { background: rgba(252, 195, 11, 0.2); color: #fcc30b; }
+        .sdg-13 .sdg-icon { background: rgba(72, 119, 62, 0.2); color: #48773e; }
+        .sdg-17 .sdg-icon { background: rgba(25, 72, 106, 0.2); color: #19486a; }
+        .sdg-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        .sdg-description {
+            font-size: 16px;
+            line-height: 1.5;
+            color: #cbd5e1;
+            flex-grow: 1;
+        }
+        .sdg-description ul {
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+        .sdg-description li {
+            margin-bottom: 8px;
+        }
+        .content.slide-content-9 {
+            padding: 80px 120px;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+        .advantages-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            flex-grow: 1;
+            width: 100%;
+        }
+        .advantage-card {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+        }
+        .advantage-card:hover {
+            transform: translateY(-8px);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+        }
+        .advantage-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(96, 165, 250, 0.2);
+            flex-shrink: 0;
+            font-size: 24px;
+            color: #60a5fa;
+        }
+        .advantage-content {
+            flex-grow: 1;
+        }
+        .advantage-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .checkmark {
+            color: #4ade80;
+            font-size: 28px;
+        }
+        .advantage-description {
+            font-size: 20px;
+            line-height: 1.5;
+            color: #cbd5e1;
+        }
+        .content.slide-content-10 {
+            padding: 80px 120px;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+        .impact-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            flex-grow: 1;
+            width: 100%;
+        }
+        .impact-row {
+            display: flex;
+            gap: 30px;
+            flex: 1;
+        }
+        .impact-card {
+            flex: 1;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 20px;
+            padding: 35px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        .impact-card:hover {
+            transform: translateY(-10px);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+        }
+        .impact-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            background: rgba(96, 165, 250, 0.2);
+            margin-bottom: 25px;
+        }
+        .impact-icon i {
+            font-size: 40px;
+            color: #60a5fa;
+        }
+        .impact-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 20px;
+            line-height: 1.3;
+        }
+        .impact-description {
+            font-size: 20px;
+            line-height: 1.6;
+            color: #cbd5e1;
+            flex-grow: 1;
+        }
+        .content.slide-content-11 {
+            padding: 80px 120px;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+        .value-container {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            flex-grow: 1;
+            justify-content: center;
+            width: 100%;
+        }
+        .value-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 40px;
+        }
+        .value-card {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 24px;
+            padding: 40px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            border-left: 5px solid #60a5fa;
+        }
+        .value-card:hover {
+            transform: translateY(-10px);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-left-color: #a78bfa;
+        }
+        .value-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            background: rgba(96, 165, 250, 0.2);
+            margin-bottom: 25px;
+        }
+        .value-icon i {
+            font-size: 40px;
+            color: #60a5fa;
+        }
+        .value-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+        .value-description {
+            font-size: 22px;
+            line-height: 1.6;
+            color: #cbd5e1;
+            flex-grow: 1;
+        }
+        .badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(167, 139, 250, 0.2);
+            border: 1px solid rgba(167, 139, 250, 0.5);
+            border-radius: 30px;
+            padding: 8px 16px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #a78bfa;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide">
+        <div class="decoration">
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+        <div class="content slide-content-1">
+            <h1 class="title">Automated Cloud Deployment & Management of n8n with GitHub Actions</h1>
+            <p class="subtitle">End-to-End CI/CD, Backup, and Monitoring Solution for SDG-Focused Automation</p>
+        </div>
+        <div class="logo-container">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                <span>GitHub Actions</span>
+            </div>
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M13.983 11.078h2.119a.186.186 0 0 1 .186.186v2.118a.186.186 0 0 1-.186.186h-2.119a.186.186 0 0 1-.186-.186v-2.118a.186.186 0 0 1 .186-.186zm-3.572 0h2.119a.186.186 0 0 1 .186.186v2.118a.186.186 0 0 1-.186.186h-2.119a.186.186 0 0 1-.186-.186v-2.118a.186.186 0 0 1 .186-.186zm-3.572 0h2.119a.186.186 0 0 1 .186.186v2.118a.186.186 0 0 1-.186.186h-2.119a.186.186 0 0 1-.186-.186v-2.118a.186.186 0 0 1 .186-.186zm7.144-3.572h2.119a.186.186 0 0 1 .186.186v2.118a.186.186 0 0 1-.186.186h-2.119a.186.186 0 0 1-.186-.186v-2.118a.186.186 0 0 1 .186-.186zm-3.572 0h2.119a.186.186 0 0 1 .186.186v2.118a.186.186 0 0 1-.186.186h-2.119a.186.186 0 0 1-.186-.186v-2.118a.186.186 0 0 1 .186-.186zm-3.572 0h2.119a.186.186 0 0 1 .186.186v2.118a.186.186 0 0 1-.186.186h-2.119a.186.186 0 0 1-.186-.186v-2.118a.186.186 0 0 1 .186-.186zm7.144-3.572h2.119a.186.186 0 0 1 .186.186v2.118a.186.186 0 0 1-.186.186h-2.119a.186.186 0 0 1-.186-.186v-2.118a.186.186 0 0 1 .186-.186zm-3.572 0h2.119a.186.186 0 0 1 .186.186v2.118a.186.186 0 0 1-.186.186h-2.119a.186.186 0 0 1-.186-.186v-2.118a.186.186 0 0 1 .186-.186zm-3.572 0h2.119a.186.186 0 0 1 .186.186v2.118a.186.186 0 0 1-.186.186h-2.119a.186.186 0 0 1-.186-.186v-2.118a.186.186 0 0 1 .186-.186z"/>
+                </svg>
+                <span>n8n</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide">
+        <div class="decoration slide-2-decoration">
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+        <div class="content slide-content-2">
+            <div class="header">
+                <h1 class="title">Problem Statement</h1>
+                <p class="subtitle">Challenges in managing n8n deployments for SDG-focused projects</p>
+            </div>
+            <div class="problems-container">
+                <div class="problem-item">
+                    <div class="problem-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <p class="problem-text">Manual setup and management of n8n on cloud VMs is <span class="highlight">time-consuming and error-prone</span>.</p>
+                </div>
+                <div class="problem-item">
+                    <div class="problem-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <p class="problem-text">Lack of standardized deployment pipeline makes updates <span class="highlight">risky</span>.</p>
+                </div>
+                <div class="problem-item">
+                    <div class="problem-icon">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <p class="problem-text">Backups are often manual → <span class="highlight">high risk of data loss</span>.</p>
+                </div>
+                <div class="problem-item">
+                    <div class="problem-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <p class="problem-text">No centralized monitoring and uptime alerts.</p>
+                </div>
+                <div class="problem-item">
+                    <div class="problem-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <p class="problem-text">SDG-focused projects often lack technical teams to manage infrastructure efficiently.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide">
+        <div class="decoration slide-2-decoration">
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+        <div class="content slide-content-3">
+            <div class="header">
+                <h1 class="title">Our Solution</h1>
+                <p class="subtitle">An automated, cloud-agnostic deployment framework for n8n</p>
+            </div>
+            <div class="solution-container">
+                <div class="solution-list">
+                    <div class="solution-item">
+                        <div class="solution-icon">
+                            <i class="fab fa-github"></i>
+                        </div>
+                        <p class="solution-text"><strong>GitHub Actions</strong> (CI/CD automation)</p>
+                    </div>
+                    <div class="solution-item">
+                        <div class="solution-icon">
+                            <i class="fab fa-docker"></i>
+                        </div>
+                        <p class="solution-text"><strong>Docker + Docker Compose</strong> (containerized deployments)</p>
+                    </div>
+                    <div class="solution-item">
+                        <div class="solution-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <p class="solution-text"><strong>NGINX + SSL</strong> (secure reverse proxy)</p>
+                    </div>
+                    <div class="solution-item">
+                        <div class="solution-icon">
+                            <i class="fab fa-google-drive"></i>
+                        </div>
+                        <p class="solution-text"><strong>Automated Backups</strong> to Google Drive</p>
+                    </div>
+                    <div class="solution-item">
+                        <div class="solution-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <p class="solution-text"><strong>Integrated Monitoring & Alerts</strong></p>
+                    </div>
+                </div>
+                <div class="impact-section">
+                    <h2 class="impact-title">
+                        <i class="fas fa-globe-americas"></i>
+                        SDG Impact
+                    </h2>
+                    <p class="impact-text">
+                        Enables <span class="highlight">quick deployment</span> of automation workflows for <span class="highlight">healthcare, education, environment, and community projects</span> without DevOps expertise.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide">
+        <div class="decoration slide-2-decoration">
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+        <div class="content slide-content-4">
+            <div class="header">
+                <h1 class="title">Key Features</h1>
+                <p class="subtitle">Powerful capabilities for automated n8n deployment and management</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-header">
+                        <div class="feature-icon">
+                            <i class="fas fa-mouse-pointer"></i>
+                        </div>
+                        <h3 class="feature-title">One-Click Setup & Updates</h3>
+                    </div>
+                    <p class="feature-description">
+                        Deploy and update n8n instances with a single <span class="highlight">GitHub Actions</span> trigger, eliminating manual configuration steps.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-header">
+                        <div class="feature-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h3 class="feature-title">Secure Reverse Proxy</h3>
+                    </div>
+                    <p class="feature-description">
+                        Automatic <span class="highlight">HTTPS provisioning</span> with NGINX and Certbot for secure, encrypted connections out of the box.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-header">
+                        <div class="feature-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <h3 class="feature-title">Automated Daily Backups</h3>
+                    </div>
+                    <p class="feature-description">
+                        Scheduled backups to Google Drive with <span class="highlight">30-day rotation</span> policy, ensuring data safety and compliance.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-header">
+                        <div class="feature-icon">
+                            <i class="fas fa-cloud-download-alt"></i>
+                        </div>
+                        <h3 class="feature-title">Easy Restore</h3>
+                    </div>
+                    <p class="feature-description">
+                        Quick recovery from any <span class="highlight">Google Drive backup</span> with simple restoration scripts and minimal downtime.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-header">
+                        <div class="feature-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <h3 class="feature-title">Optional Monitoring</h3>
+                    </div>
+                    <p class="feature-description">
+                        Integrated <span class="highlight">Beszel</span> for metrics and <span class="highlight">Uptime-Kuma</span> for alerts, enabling proactive system management.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-header">
+                        <div class="feature-icon">
+                            <i class="fas fa-cloud"></i>
+                        </div>
+                        <h3 class="feature-title">Cloud-Agnostic</h3>
+                    </div>
+                    <p class="feature-description">
+                        Works seamlessly on <span class="highlight">any VM provider</span> including AWS, Azure, GCP, DigitalOcean, and more.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide">
+        <div class="decoration slide-2-decoration">
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+        <div class="content slide-content-5">
+            <div class="header">
+                <h1 class="title">Architecture</h1>
+                <p class="subtitle">Stages of the Solution</p>
+            </div>
+            <div class="architecture-container">
+                <div class="architecture-row">
+                    <div class="stage-card">
+                        <div class="stage-number">1</div>
+                        <div class="stage-header">
+                            <div class="stage-icon">
+                                <i class="fas fa-sitemap"></i>
+                            </div>
+                            <h3 class="stage-title">Plan & Prepare</h3>
+                        </div>
+                        <p class="stage-description">
+                            Project structure, VM selection
+                        </p>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-number">2</div>
+                        <div class="stage-header">
+                            <div class="stage-icon">
+                                <i class="fas fa-server"></i>
+                            </div>
+                            <h3 class="stage-title">VM Setup</h3>
+                        </div>
+                        <p class="stage-description">
+                            <span class="highlight">GitHub Actions</span> installs Docker, Git, essentials
+                        </p>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-number">3</div>
+                        <div class="stage-header">
+                            <div class="stage-icon">
+                                <i class="fas fa-cubes"></i>
+                            </div>
+                            <h3 class="stage-title">n8n Deployment</h3>
+                        </div>
+                        <p class="stage-description">
+                            <span class="highlight">Docker Compose</span> for easy container management
+                        </p>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-number">4</div>
+                        <div class="stage-header">
+                            <div class="stage-icon">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <h3 class="stage-title">Reverse Proxy</h3>
+                        </div>
+                        <p class="stage-description">
+                            <span class="highlight">NGINX + Certbot</span> for HTTPS
+                        </p>
+                    </div>
+                </div>
+                <div class="architecture-row">
+                    <div class="stage-card">
+                        <div class="stage-number">5</div>
+                        <div class="stage-header">
+                            <div class="stage-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <h3 class="stage-title">Daily Backup</h3>
+                        </div>
+                        <p class="stage-description">
+                            <span class="highlight">rclone</span> → Google Drive with rotation
+                        </p>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-number">6</div>
+                        <div class="stage-header">
+                            <div class="stage-icon">
+                                <i class="fas fa-cloud-download-alt"></i>
+                            </div>
+                            <h3 class="stage-title">Restore Script</h3>
+                        </div>
+                        <p class="stage-description">
+                            Quick recovery from chosen backup
+                        </p>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-number">7</div>
+                        <div class="stage-header">
+                            <div class="stage-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <h3 class="stage-title">Monitoring</h3>
+                        </div>
+                        <p class="stage-description">
+                            <span class="highlight">Beszel</span> for metrics, <span class="highlight">Uptime-Kuma</span> for alerts
+                        </p>
+                    </div>
+                    <div class="stage-card">
+                        <div class="stage-number">8</div>
+                        <div class="stage-header">
+                            <div class="stage-icon">
+                                <i class="fas fa-project-diagram"></i>
+                            </div>
+                            <h3 class="stage-title">Integrated Workflows</h3>
+                        </div>
+                        <p class="stage-description">
+                            All actions combined into a single <span class="highlight">CI/CD pipeline</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide">
+        <div class="decoration slide-2-decoration">
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+        <div class="content slide-content-6">
+            <div class="header">
+                <h1 class="title">Workflow Example</h1>
+                <p class="subtitle">User Flow: Automated deployment and management process</p>
+            </div>
+            <div class="workflow-container">
+                <div class="flow-diagram">
+                    <div class="flow-item">
+                        <div class="flow-icon">
+                            <i class="fab fa-github"></i>
+                        </div>
+                        <p class="flow-text">Push code / trigger workflow in <span class="highlight">GitHub Actions</span></p>
+                    </div>
+                    <i class="fas fa-long-arrow-alt-right workflow-arrow"></i>
+                    <div class="flow-item">
+                        <div class="flow-icon">
+                            <i class="fas fa-network-wired"></i>
+                        </div>
+                        <p class="flow-text">Actions connect to VM via <span class="highlight">SSH</span></p>
+                    </div>
+                    <i class="fas fa-long-arrow-alt-right workflow-arrow"></i>
+                    <div class="flow-item">
+                        <div class="flow-icon">
+                            <i class="fas fa-cogs"></i>
+                        </div>
+                        <p class="flow-text">Install dependencies → Deploy <span class="highlight">n8n</span> → Configure <span class="highlight">NGINX + SSL</span></p>
+                    </div>
+                    <i class="fas fa-long-arrow-alt-right workflow-arrow"></i>
+                    <div class="flow-item">
+                        <div class="flow-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <p class="flow-text">Schedule daily backups → Monitor system health & uptime</p>
+                    </div>
+                </div>
+                
+                <div class="workflow-steps">
+                    <div class="workflow-step">
+                        <div class="step-number">1</div>
+                        <i class="fab fa-github step-icon"></i>
+                        <h3 class="step-title">Code Trigger</h3>
+                        <p class="step-description">Push to repository or manually trigger <span class="highlight">GitHub Actions</span> workflow to start the deployment process</p>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="step-number">2</div>
+                        <i class="fas fa-server step-icon"></i>
+                        <h3 class="step-title">VM Connection</h3>
+                        <p class="step-description">Actions securely connect to the target VM via <span class="highlight">SSH</span> using encrypted credentials</p>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="step-number">3</div>
+                        <i class="fas fa-cubes step-icon"></i>
+                        <h3 class="step-title">Deployment</h3>
+                        <p class="step-description">Install dependencies, deploy <span class="highlight">n8n</span> with Docker Compose, and configure <span class="highlight">NGINX + SSL</span></p>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="step-number">4</div>
+                        <i class="fas fa-chart-line step-icon"></i>
+                        <h3 class="step-title">Maintenance</h3>
+                        <p class="step-description">Schedule automated daily backups and set up <span class="highlight">monitoring</span> for system health and uptime</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide">
+        <div class="decoration slide-2-decoration">
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+        <div class="content slide-content-7">
+            <div class="header">
+                <h1 class="title">Technical Stack</h1>
+                <p class="subtitle">Powerful open-source technologies driving our automated solution</p>
+            </div>
+            <div class="tech-grid">
+                <div class="tech-card">
+                    <div class="tech-header">
+                        <div class="tech-icon">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <h3 class="tech-title">Automation</h3>
+                    </div>
+                    <p class="tech-description">
+                        Streamlined CI/CD workflows for continuous deployment and management
+                    </p>
+                    <div class="tech-tools">
+                        <div class="tech-tool">
+                            <i class="fab fa-github"></i>
+                            <span>GitHub Actions</span>
+                        </div>
+                        <div class="tech-tool">
+                            <i class="fas fa-terminal"></i>
+                            <span>Bash Scripts</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-header">
+                        <div class="tech-icon">
+                            <i class="fab fa-docker"></i>
+                        </div>
+                        <h3 class="tech-title">Containerization</h3>
+                    </div>
+                    <p class="tech-description">
+                        Isolated, portable environments for consistent deployments
+                    </p>
+                    <div class="tech-tools">
+                        <div class="tech-tool">
+                            <i class="fab fa-docker"></i>
+                            <span>Docker</span>
+                        </div>
+                        <div class="tech-tool">
+                            <i class="fas fa-cubes"></i>
+                            <span>Docker Compose</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-header">
+                        <div class="tech-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h3 class="tech-title">Proxy & SSL</h3>
+                    </div>
+                    <p class="tech-description">
+                        Secure web gateway with automatic HTTPS certificate management
+                    </p>
+                    <div class="tech-tools">
+                        <div class="tech-tool">
+                            <i class="fas fa-server"></i>
+                            <span>NGINX</span>
+                        </div>
+                        <div class="tech-tool">
+                            <i class="fas fa-lock"></i>
+                            <span>Certbot</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-header">
+                        <div class="tech-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <h3 class="tech-title">Backup & Restore</h3>
+                    </div>
+                    <p class="tech-description">
+                        Automated data protection with cloud storage integration
+                    </p>
+                    <div class="tech-tools">
+                        <div class="tech-tool">
+                            <i class="fas fa-sync"></i>
+                            <span>rclone</span>
+                        </div>
+                        <div class="tech-tool">
+                            <i class="fab fa-google-drive"></i>
+                            <span>Google Drive</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-header">
+                        <div class="tech-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <h3 class="tech-title">Monitoring</h3>
+                    </div>
+                    <p class="tech-description">
+                        Real-time system metrics and uptime tracking for reliability
+                    </p>
+                    <div class="tech-tools">
+                        <div class="tech-tool">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>Beszel</span>
+                        </div>
+                        <div class="tech-tool">
+                            <i class="fas fa-heartbeat"></i>
+                            <span>Uptime-Kuma</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-header">
+                        <div class="tech-icon">
+                            <i class="fas fa-cloud"></i>
+                        </div>
+                        <h3 class="tech-title">Hosting</h3>
+                    </div>
+                    <p class="tech-description">
+                        Cloud-agnostic deployment on any virtual machine provider
+                    </p>
+                    <div class="tech-tools">
+                        <div class="tech-tool">
+                            <i class="fab fa-aws"></i>
+                            <span>AWS</span>
+                        </div>
+                        <div class="tech-tool">
+                            <i class="fab fa-google"></i>
+                            <span>GCP</span>
+                        </div>
+                        <div class="tech-tool">
+                            <i class="fab fa-microsoft"></i>
+                            <span>Azure</span>
+                        </div>
+                        <div class="tech-tool">
+                            <i class="fas fa-water"></i>
+                            <span>DigitalOcean</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide">
+        <div class="decoration slide-2-decoration">
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+        <div class="content slide-content-8">
+            <div class="header">
+                <h1 class="title">Applications & UN SDG Impact</h1>
+                <p class="subtitle">Our framework enables fast, secure, and cost-effective deployment of automation workflows that directly contribute to UN Sustainable Development Goals:</p>
+            </div>
+            <div class="sdg-grid">
+                <div class="sdg-card sdg-3">
+                    <div class="sdg-header">
+                        <div class="sdg-icon">3</div>
+                        <h3 class="sdg-title">Good Health & Well-Being</h3>
+                    </div>
+                    <div class="sdg-description">
+                        <ul>
+                            <li>Deploy <span class="highlight">automated health reporting</span> & telemedicine workflows</li>
+                            <li>Monitor vaccination schedules and send reminders to communities</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="sdg-card sdg-4">
+                    <div class="sdg-header">
+                        <div class="sdg-icon">4</div>
+                        <h3 class="sdg-title">Quality Education</h3>
+                    </div>
+                    <div class="sdg-description">
+                        <ul>
+                            <li>Automate <span class="highlight">student progress tracking</span> and course notifications</li>
+                            <li>Enable rural schools to use cloud-hosted educational automation without managing servers manually</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="sdg-card sdg-6">
+                    <div class="sdg-header">
+                        <div class="sdg-icon">6</div>
+                        <h3 class="sdg-title">Clean Water & Sanitation</h3>
+                    </div>
+                    <div class="sdg-description">
+                        <ul>
+                            <li>Connect <span class="highlight">IoT sensors</span> for water quality monitoring</li>
+                            <li>Send alerts to authorities when contamination is detected</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="sdg-card sdg-7">
+                    <div class="sdg-header">
+                        <div class="sdg-icon">7</div>
+                        <h3 class="sdg-title">Affordable & Clean Energy</h3>
+                    </div>
+                    <div class="sdg-description">
+                        <ul>
+                            <li>Monitor <span class="highlight">renewable energy production</span> from solar/wind plants</li>
+                            <li>Automate maintenance alerts when performance drops</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="sdg-card sdg-13">
+                    <div class="sdg-header">
+                        <div class="sdg-icon">13</div>
+                        <h3 class="sdg-title">Climate Action</h3>
+                    </div>
+                    <div class="sdg-description">
+                        <ul>
+                            <li>Deploy workflows to track <span class="highlight">environmental data</span> like air/water pollution levels</li>
+                            <li>Trigger alerts for local action when thresholds are exceeded</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="sdg-card sdg-17">
+                    <div class="sdg-header">
+                        <div class="sdg-icon">17</div>
+                        <h3 class="sdg-title">Partnerships for the Goals</h3>
+                    </div>
+                    <div class="sdg-description">
+                        <ul>
+                            <li>Provide NGOs, governments, and communities with a <span class="highlight">shared automation platform</span></li>
+                            <li>Enable secure, cross-organization collaboration without heavy technical setups</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide">
+        <div class="decoration slide-2-decoration">
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+        <div class="content slide-content-9">
+            <div class="header">
+                <h1 class="title">Advantages</h1>
+                <p class="subtitle">Key benefits of our automated deployment framework</p>
+            </div>
+            <div class="advantages-container">
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="advantage-content">
+                        <h3 class="advantage-title">
+                            <i class="fas fa-check-circle checkmark"></i>
+                            Fully Automated
+                        </h3>
+                        <p class="advantage-description">
+                            Saves <span class="highlight">hours of manual setup</span> with streamlined deployment processes
+                        </p>
+                    </div>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-sync-alt"></i>
+                    </div>
+                    <div class="advantage-content">
+                        <h3 class="advantage-title">
+                            <i class="fas fa-check-circle checkmark"></i>
+                            Reliable & Reproducible
+                        </h3>
+                        <p class="advantage-description">
+                            <span class="highlight">Same setup every time</span> with consistent, version-controlled deployments
+                        </p>
+                    </div>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="advantage-content">
+                        <h3 class="advantage-title">
+                            <i class="fas fa-check-circle checkmark"></i>
+                            Secure by Default
+                        </h3>
+                        <p class="advantage-description">
+                            <span class="highlight">HTTPS and isolated containers</span> for enhanced security and protection
+                        </p>
+                    </div>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <div class="advantage-content">
+                        <h3 class="advantage-title">
+                            <i class="fas fa-check-circle checkmark"></i>
+                            Resilient
+                        </h3>
+                        <p class="advantage-description">
+                            <span class="highlight">Automated backups & quick restore</span> capabilities for data protection
+                        </p>
+                    </div>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-expand-arrows-alt"></i>
+                    </div>
+                    <div class="advantage-content">
+                        <h3 class="advantage-title">
+                            <i class="fas fa-check-circle checkmark"></i>
+                            Scalable
+                        </h3>
+                        <p class="advantage-description">
+                            Works for <span class="highlight">individuals, NGOs, and enterprises</span> of all sizes
+                        </p>
+                    </div>
+                </div>
+                <div class="advantage-card">
+                    <div class="advantage-icon">
+                        <i class="fas fa-globe-americas"></i>
+                    </div>
+                    <div class="advantage-content">
+                        <h3 class="advantage-title">
+                            <i class="fas fa-check-circle checkmark"></i>
+                            SDG-Aligned
+                        </h3>
+                        <p class="advantage-description">
+                            <span class="highlight">Ready for projects</span> that address UN sustainable development goals
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide">
+        <div class="decoration slide-2-decoration">
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+        <div class="glow-effect glow-1"></div>
+        <div class="glow-effect glow-2"></div>
+        <div class="content slide-content-10">
+            <div class="header">
+                <h1 class="title">Potential Impact</h1>
+                <p class="subtitle">Transformative effects of our automated deployment framework</p>
+            </div>
+            <div class="impact-container">
+                <div class="impact-row">
+                    <div class="impact-card">
+                        <div class="impact-icon">
+                            <i class="fas fa-users-cog"></i>
+                        </div>
+                        <h3 class="impact-title">Empower Non-Technical Teams</h3>
+                        <p class="impact-description">
+                            Enables <span class="highlight">non-technical teams</span> to deploy and manage automation tools without requiring DevOps expertise or specialized training
+                        </p>
+                    </div>
+                    <div class="impact-card">
+                        <div class="impact-icon">
+                            <i class="fas fa-shield-virus"></i>
+                        </div>
+                        <h3 class="impact-title">Reduce Risk & Downtime</h3>
+                        <p class="impact-description">
+                            Minimizes <span class="highlight">downtime and data loss risk</span> for mission-critical SDG projects through automated backups and reliable deployment processes
+                        </p>
+                    </div>
+                </div>
+                <div class="impact-row">
+                    <div class="impact-card">
+                        <div class="impact-icon">
+                            <i class="fas fa-cloud"></i>
+                        </div>
+                        <h3 class="impact-title">Multi-Cloud Flexibility</h3>
+                        <p class="impact-description">
+                            Supports <span class="highlight">global deployment</span> across any cloud provider, enabling projects to operate in regions with specific infrastructure requirements
+                        </p>
+                    </div>
+                    <div class="impact-card">
+                        <div class="impact-icon">
+                            <i class="fas fa-puzzle-piece"></i>
+                        </div>
+                        <h3 class="impact-title">Extensible Framework</h3>
+                        <p class="impact-description">
+                            Can be <span class="highlight">extended beyond n8n</span> to deploy other open-source automation tools, creating a comprehensive ecosystem for SDG projects
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide">
+        <div class="decoration slide-2-decoration">
+            <div class="circle"></div>
+            <div class="circle"></div>
+        </div>
+        <div class="glow-effect glow-1"></div>
+        <div class="glow-effect glow-2"></div>
+        <div class="content slide-content-11">
+            <div class="header">
+                <h1 class="title">Hackathon Value</h1>
+                <p class="subtitle">Why our solution would stand out in the competition</p>
+            </div>
+            <div class="value-container">
+                <div class="value-grid">
+                    <div class="value-card">
+                        <div class="badge">Core Strength</div>
+                        <div class="value-icon">
+                            <i class="fas fa-lightbulb"></i>
+                        </div>
+                        <h3 class="value-title">Innovation</h3>
+                        <p class="value-description">
+                            First <span class="highlight">fully integrated CI/CD + backup + monitoring</span> framework for n8n with SDG applications
+                        </p>
+                    </div>
+                    <div class="value-card">
+                        <div class="value-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <h3 class="value-title">Feasibility</h3>
+                        <p class="value-description">
+                            Uses <span class="highlight">proven, well-supported</span> open-source tools with active communities
+                        </p>
+                    </div>
+                    <div class="value-card">
+                        <div class="value-icon">
+                            <i class="fas fa-expand-arrows-alt"></i>
+                        </div>
+                        <h3 class="value-title">Scalability</h3>
+                        <p class="value-description">
+                            Works for projects of <span class="highlight">all sizes and budgets</span> from individual initiatives to enterprise deployments
+                        </p>
+                    </div>
+                    <div class="value-card">
+                        <div class="badge">Global Impact</div>
+                        <div class="value-icon">
+                            <i class="fas fa-globe"></i>
+                        </div>
+                        <h3 class="value-title">Community Value</h3>
+                        <p class="value-description">
+                            Can be <span class="highlight">open-sourced</span> for global impact and collaborative development
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
