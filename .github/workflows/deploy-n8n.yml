@@ -59,7 +59,29 @@ jobs:
 
             echo "Installing/Updating Docker Compose..."
             sudo apt update
-            sudo apt install -y docker-compose-plugin
+
+            # Try multiple installation methods for Docker Compose
+            if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+              echo "Installing Docker Compose using multiple methods..."
+
+              # Method 1: Try docker-compose-plugin
+              sudo apt install -y docker-compose-plugin 2>/dev/null || echo "docker-compose-plugin not available"
+
+              # Method 2: Try standalone docker-compose
+              if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+                sudo apt install -y docker-compose 2>/dev/null || echo "docker-compose package not available"
+              fi
+
+              # Method 3: Install from GitHub releases (fallback)
+              if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+                echo "Installing Docker Compose from GitHub releases..."
+                DOCKER_COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep 'tag_name' | cut -d'"' -f4)
+                sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+                sudo chmod +x /usr/local/bin/docker-compose
+              fi
+            else
+              echo "Docker Compose already available"
+            fi
 
             echo "Checking Docker Compose..."
             if command -v docker-compose &> /dev/null; then
@@ -147,8 +169,18 @@ jobs:
               echo 'elif docker compose version &> /dev/null; then' >> scripts/deploy_n8n.sh
               echo '  DOCKER_COMPOSE_CMD="docker compose"' >> scripts/deploy_n8n.sh
               echo 'else' >> scripts/deploy_n8n.sh
-              echo '  sudo apt update && sudo apt install -y docker-compose-plugin' >> scripts/deploy_n8n.sh
-              echo '  DOCKER_COMPOSE_CMD="docker compose"' >> scripts/deploy_n8n.sh
+              echo '  echo "Installing Docker Compose..."' >> scripts/deploy_n8n.sh
+              echo '  sudo apt update' >> scripts/deploy_n8n.sh
+              echo '  sudo apt install -y docker-compose-plugin 2>/dev/null || sudo apt install -y docker-compose 2>/dev/null || {' >> scripts/deploy_n8n.sh
+              echo '    DOCKER_COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep "tag_name" | cut -d"\"" -f4)' >> scripts/deploy_n8n.sh
+              echo '    sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose' >> scripts/deploy_n8n.sh
+              echo '    sudo chmod +x /usr/local/bin/docker-compose' >> scripts/deploy_n8n.sh
+              echo '  }' >> scripts/deploy_n8n.sh
+              echo '  if command -v docker-compose &> /dev/null; then' >> scripts/deploy_n8n.sh
+              echo '    DOCKER_COMPOSE_CMD="docker-compose"' >> scripts/deploy_n8n.sh
+              echo '  else' >> scripts/deploy_n8n.sh
+              echo '    DOCKER_COMPOSE_CMD="docker compose"' >> scripts/deploy_n8n.sh
+              echo '  fi' >> scripts/deploy_n8n.sh
               echo 'fi' >> scripts/deploy_n8n.sh
               echo 'echo "Using: $DOCKER_COMPOSE_CMD"' >> scripts/deploy_n8n.sh
               echo '$DOCKER_COMPOSE_CMD -f docker/docker-compose.n8n.yml down || true' >> scripts/deploy_n8n.sh
