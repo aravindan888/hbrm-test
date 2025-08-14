@@ -67,6 +67,7 @@ N8N_USER=admin
 N8N_PASSWORD=changeme
 DOMAIN=n8n.yourdomain.com
 CERTBOT_EMAIL=your-email@domain.com
+N8N_SECURE_COOKIE=false
 TZ=Asia/Kolkata
 ENVEOF
         log "✅ Basic .env file created"
