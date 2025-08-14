@@ -67,7 +67,6 @@ N8N_USER=admin
 N8N_PASSWORD=changeme
 DOMAIN=n8n.yourdomain.com
 CERTBOT_EMAIL=your-email@domain.com
-N8N_SECURE_COOKIE=false
 TZ=Asia/Kolkata
 ENVEOF
         log "✅ Basic .env file created"
@@ -98,10 +97,32 @@ elif docker compose version &> /dev/null; then
 else
     log "⚠️  Docker Compose not found! Installing..."
     sudo apt update
-    sudo apt install -y docker-compose-plugin
-    if docker compose version &> /dev/null; then
+
+    # Try multiple installation methods
+    log "Trying docker-compose-plugin..."
+    sudo apt install -y docker-compose-plugin 2>/dev/null || log "docker-compose-plugin not available"
+
+    # Check if installation worked
+    if ! command_exists docker-compose && ! docker compose version &> /dev/null; then
+        log "Trying standalone docker-compose package..."
+        sudo apt install -y docker-compose 2>/dev/null || log "docker-compose package not available"
+    fi
+
+    # Fallback to GitHub release
+    if ! command_exists docker-compose && ! docker compose version &> /dev/null; then
+        log "Installing Docker Compose from GitHub releases..."
+        DOCKER_COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep 'tag_name' | cut -d'"' -f4)
+        sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+    fi
+
+    # Determine which command to use
+    if command_exists docker-compose; then
+        DOCKER_COMPOSE_CMD="docker-compose"
+        log "✅ Using docker-compose command"
+    elif docker compose version &> /dev/null; then
         DOCKER_COMPOSE_CMD="docker compose"
-        log "✅ Docker Compose plugin installed"
+        log "✅ Using docker compose plugin"
     else
         log "❌ Failed to install Docker Compose"
         exit 1
