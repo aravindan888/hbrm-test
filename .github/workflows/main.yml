@@ -1,0 +1,25 @@
+name: Test NGINX Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Domain name'
+        required: true
+        type: string
+        default: 'test.example.com'
+      email:
+        description: 'Email address'
+        required: true
+        type: string
+        default: 'test@example.com'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Test step
+        run: |
+          echo "Domain: ${{ github.event.inputs.domain }}"
+          echo "Email: ${{ github.event.inputs.email }}"
