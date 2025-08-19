@@ -14,5 +14,3 @@ jobs:
     steps:
       - name: Show test_param
         run: echo "Test parameter: ${{ github.event.inputs.test_param }}"
-
-
