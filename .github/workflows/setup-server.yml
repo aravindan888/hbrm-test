@@ -37,7 +37,6 @@ jobs:
             # Install Docker Compose if not present
             if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
               echo "Installing Docker Compose..."
-              # Install Docker Compose v2 (comes with docker-compose-plugin)
               sudo apt update
               sudo apt install -y docker-compose-plugin
               echo "Docker Compose installation completed"
@@ -55,7 +54,6 @@ jobs:
       - name: Clone or update repository
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'EOF'
-            # Set up directory for the project
             PROJECT_DIR="$HOME/hbrm-test"
 
             if [ -d "$PROJECT_DIR/.git" ]; then
@@ -63,9 +61,9 @@ jobs:
               cd "$PROJECT_DIR" && git pull origin main
             else
               echo "Cloning repo..."
-              # Use GitHub token for authentication if repository is private
-              if [ -n "${{ secrets.GITHUB_TOKEN }}" ]; then
-                git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} "$PROJECT_DIR"
+              # Use Personal Access Token for authentication if repository is private
+              if [ -n "${{ secrets.GH_PAT }}" ]; then
+                git clone https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }} "$PROJECT_DIR"
               else
                 # For public repositories, use HTTPS without token
                 git clone https://github.com/${{ github.repository }} "$PROJECT_DIR"
