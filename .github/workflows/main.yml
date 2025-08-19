@@ -1,0 +1,16 @@
+name: Test Manual Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_param:
+        description: 'Enter a test value'
+        required: false
+        default: 'default'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show test_param
+        run: echo "Test parameter: ${{ github.event.inputs.test_param }}"
